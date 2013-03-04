@@ -807,11 +807,14 @@ void ReniceProcs(double deltat)
       proc->badkarma+=badkarmaincrease;
       if (proc->badkarma < 0.0)
 	proc->badkarma=0.0;
-    } else if (proc->immuneflag) {
+    } 
+    if (proc->immuneflag) {
       proc->badkarma=0.0;
-    } else if (proc->goodflag) {
+    } 
+    if (proc->goodflag) {
       proc->badkarma=notnice; /* NOTNICE */
-    } else if (proc->badflag && proc->badkarma < batchjob) {
+    } 
+    if (!proc->immuneflag && proc->badflag && proc->badkarma < batchjob) {
       proc->badkarma=batchjob; /* BATCHJOB */
     }
     /* upper bound the bad karma of regular processes at BATCHJOB */

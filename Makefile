@@ -29,7 +29,7 @@ INSTALL=install
 # Solaris users probably need to use this:
 #INSTALL=/usr/ucb/install
 
-VERSION=1.0
+VERSION=1.1
 
 #CFLAGS= -I../include/ -O3 -Wimplicit
 CFLAGS= -I../include/ -g -Wimplicit -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET) -DVERSION=\"$(VERSION)\"

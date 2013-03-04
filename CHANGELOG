@@ -1,5 +1,9 @@
-VeryNice 1.0pre
----------------
+VeryNice 1.1
+------------
+"badexe" setting didn't work in 1.0. Fixed
+
+VeryNice 1.0
+------------
 Now logs executable location along with pid and uid when killing process
 System log message for SIGTERM no longer claims to be SIGKILL
 Added more return value sanity checks for system calls. 
