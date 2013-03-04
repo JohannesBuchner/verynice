@@ -245,6 +245,8 @@ void ReadProcs(struct List *Target)
   struct stat statbuf;
 
   dir=opendir("/proc");
+
+  if (!dir) return;
   
   while (ent=readdir(dir)) {
     for (Pos=0;ent->d_name[Pos];Pos++) {
@@ -264,6 +266,7 @@ void ReadProcs(struct List *Target)
       statf=fopen(statfname,"r");
       if (statf) {
 	actsize=fread((char *)statfbuf,1,sizeof(statfbuf)-1,statf); 
+	assert(actsize >= 0);
 	statfbuf[actsize]=0; /* add null terminator */
 	fclose(statf);
 	/* The process name field in the linux procfs stat file is not escaped,
@@ -273,7 +276,7 @@ void ReadProcs(struct List *Target)
 	  if (statfbuf[lastcloseparenidx]==')')
 	    break;
 	}
-	if (lastcloseparenidx != 0) {
+	if (lastcloseparenidx > 0) {
 	  /* going ok... */
 	  
 	  /* extract data */
@@ -283,6 +286,7 @@ void ReadProcs(struct List *Target)
 	  
 	  /* use strtod for throwaways, so we can handle large and negative
 	     numbers */
+	  assert(lastcloseparenidx+4 < actsize);
 	  bufptr=&statfbuf[lastcloseparenidx+4];
 	  
 	  parentpid=(pid_t)strtol(bufptr,&bufptr,10);
@@ -302,8 +306,10 @@ void ReadProcs(struct List *Target)
 	  strcpy(exelname,"/proc/");
 	  strcat(exelname,ent->d_name);
 	  strcat(exelname,"/exe");
+	  memset(&statbuf,0,sizeof(statbuf));
 	  if (!lstat(exelname,&statbuf)) {
 	    uid=statbuf.st_uid;
+	    exelbuf[0]=0;
 	    exellen=readlink(exelname,exelbuf,sizeof(exelbuf)-1);
 	    if (exellen > 0) {
 	      exelbuf[exellen]='\0';
@@ -826,6 +832,8 @@ void ReniceProcs(double deltat)
     
     if (desirednicelevel != proc->nicelevel && (!proc->immuneflag || proc->reniced)) {
       /* renice process */
+      if (desirednicelevel < -20) desirednicelevel=-20;
+      if (desirednicelevel > 20) desirednicelevel=20;
       ret=setpriority(PRIO_PROCESS,proc->pid,desirednicelevel);
       if (!ret) {
 	/* setpriority worked! */
@@ -840,10 +848,10 @@ void ReniceProcs(double deltat)
     }
 
     if (proc->potentialrunaway && proc->badkarma > killproc) {
-      syslog(LOG_WARNING,"Sending SIGKILL to process %ld, uid %ld. BadKarma=%g",(long)proc->pid,(long)proc->uid,(double)proc->badkarma);
+      syslog(LOG_WARNING,"Sending SIGKILL to process %ld, executable %s, uid %ld. BadKarma=%g",(long)proc->pid,(char *)((proc->exename==NULL) ? "":proc->exename),(long)proc->uid,(double)proc->badkarma);
       kill(proc->pid,SIGKILL); /* die!!! */
     } else if (proc->potentialrunaway && proc->badkarma > runaway) { 
-      syslog(LOG_WARNING,"Sending SIGKILL to process %ld, uid %ld. BadKarma=%g",(long)proc->pid,(long)proc->uid,(double)proc->badkarma);
+      syslog(LOG_WARNING,"Sending SIGTERM to process %ld, executable %s, uid %ld. BadKarma=%g",(long)proc->pid,(char *)((proc->exename==NULL) ? "":proc->exename),(long)proc->uid,(double)proc->badkarma);
       kill(proc->pid,SIGTERM);
     }
 
@@ -855,9 +863,13 @@ void UnniceProcs(void)
 {
   /* un-nice all procs and empty process table */
   struct procent *proc;
+  int targetlevel;
 
   while (proc=(struct procent *)RemHead(&proclist)) {
-    if (!proc->immuneflag) setpriority(PRIO_PROCESS,proc->pid,proc->nicelevel-proc->reniced);
+    targetlevel=proc->nicelevel-proc->reniced;
+    if (targetlevel < -20) targetlevel=-20;
+    if (targetlevel > 20) targetlevel=20;
+    if (!proc->immuneflag) setpriority(PRIO_PROCESS,proc->pid,targetlevel);
     
     DeleteProc(proc);
   }

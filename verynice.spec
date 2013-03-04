@@ -52,5 +52,5 @@ fi
 /usr/sbin/verynice
 %config /etc/rc.d/init.d/verynice.init
 %config /etc/verynice.conf
-/usr/doc/verynice-VERSION
+/usr/share/doc/verynice-VERSION
 

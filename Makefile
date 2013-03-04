@@ -29,7 +29,7 @@ INSTALL=install
 # Solaris users probably need to use this:
 #INSTALL=/usr/ucb/install
 
-VERSION=0.8
+VERSION=1.0
 
 #CFLAGS= -I../include/ -O3 -Wimplicit
 CFLAGS= -I../include/ -g -Wimplicit -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET) -DVERSION=\"$(VERSION)\"
@@ -65,13 +65,14 @@ install:
 	  mv -f $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf~ ; \
 	  $(INSTALL) -m 644 verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc ; \
 	fi
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/doc 
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 README $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 README.SYN $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 COPYING $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 CHANGELOG $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share 
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc 
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 README $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 README.SYN $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 COPYING $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 CHANGELOG $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 
 
 buildrpm: 

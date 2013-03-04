@@ -1,3 +1,10 @@
+VeryNice 1.0pre
+---------------
+Now logs executable location along with pid and uid when killing process
+System log message for SIGTERM no longer claims to be SIGKILL
+Added more return value sanity checks for system calls. 
+
+
 VeryNice 0.8
 ------------
 A working SysV style init script is now provided. 

@@ -27,6 +27,7 @@
 #include <pwd.h>
 #include <syslog.h>
 
+#include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -78,7 +79,7 @@
 config_pcb_type config_pcb;
 #define PCB config_pcb
 
-/*  Line 215, /home1/sdh4/verynice/config.syn */
+/*  Line 216, /home1/sdh4/verynice/config.syn */
 void DoConfig(char *Filename,FILE *Cfgin, int Userfile, uid_t Uid)
   /* WARNING: side effects:
        - Assumes syslog(3) is activated. Caller is responsible for opening/closing
@@ -127,12 +128,14 @@ struct knownuid *ReadCfgFile(uid_t uid)
     strcpy(userfname,pwd->pw_dir);
     strcat(userfname,"/");
     strcat(userfname,USERCFGFILE);
+    memset(&filestat,0,sizeof(filestat));
     if (!lstat(userfname,&filestat)) {
       if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
 	/* regular file that exists and is not a symbolic link */
 	/* read it!!! */
 	f=fopen(userfname,"r");
-	DoConfig(userfname,f,1,pwd->pw_uid);
+	if (f)	
+	  DoConfig(userfname,f,1,pwd->pw_uid);
 	fclose(f);
 	
 
@@ -245,7 +248,7 @@ void ReadCfgFiles(char *prefix)
 #endif
 
 static void ag_rp_1(void) {
-/* Line 82, /home1/sdh4/verynice/config.syn */
+/* Line 83, /home1/sdh4/verynice/config.syn */
     char *str;
     struct immuneuid *u;
     struct passwd *pwd;
@@ -263,7 +266,7 @@ static void ag_rp_1(void) {
 }
 
 static void ag_rp_2(void) {
-/* Line 97, /home1/sdh4/verynice/config.syn */
+/* Line 98, /home1/sdh4/verynice/config.syn */
     struct immuneexe *exe;
     char *str;
     
@@ -277,7 +280,7 @@ static void ag_rp_2(void) {
 }
 
 static void ag_rp_3(void) {
-/* Line 108, /home1/sdh4/verynice/config.syn */
+/* Line 109, /home1/sdh4/verynice/config.syn */
     struct badexe *exe;
     char *str;
     
@@ -293,7 +296,7 @@ static void ag_rp_3(void) {
 }
 
 static void ag_rp_4(void) {
-/* Line 121, /home1/sdh4/verynice/config.syn */
+/* Line 122, /home1/sdh4/verynice/config.syn */
     struct goodexe *exe;
     char *str;
     
@@ -307,7 +310,7 @@ static void ag_rp_4(void) {
 }
 
 static void ag_rp_5(void) {
-/* Line 132, /home1/sdh4/verynice/config.syn */
+/* Line 133, /home1/sdh4/verynice/config.syn */
     struct runawayexe *exe;
     char *str;
     
@@ -321,7 +324,7 @@ static void ag_rp_5(void) {
 }
 
 static void ag_rp_6(void) {
-/* Line 143, /home1/sdh4/verynice/config.syn */
+/* Line 144, /home1/sdh4/verynice/config.syn */
     struct hungryexe *exe;
     char *str;
     
@@ -335,62 +338,62 @@ static void ag_rp_6(void) {
 }
 
 static void ag_rp_7(int i) {
-/* Line 153, /home1/sdh4/verynice/config.syn */
+/* Line 154, /home1/sdh4/verynice/config.syn */
 if(!userfile) notnice=i;
 }
 
 static void ag_rp_8(int i) {
-/* Line 154, /home1/sdh4/verynice/config.syn */
+/* Line 155, /home1/sdh4/verynice/config.syn */
 if (!userfile) batchjob=i;
 }
 
 static void ag_rp_9(int i) {
-/* Line 155, /home1/sdh4/verynice/config.syn */
+/* Line 156, /home1/sdh4/verynice/config.syn */
 if (!userfile) runaway=i;
 }
 
 static void ag_rp_10(int i) {
-/* Line 156, /home1/sdh4/verynice/config.syn */
+/* Line 157, /home1/sdh4/verynice/config.syn */
 if(!userfile) killproc=i;
 }
 
 static void ag_rp_11(double r) {
-/* Line 157, /home1/sdh4/verynice/config.syn */
+/* Line 158, /home1/sdh4/verynice/config.syn */
 if (!userfile) badkarmarate=r;
 }
 
 static void ag_rp_12(double r) {
-/* Line 158, /home1/sdh4/verynice/config.syn */
+/* Line 159, /home1/sdh4/verynice/config.syn */
 if (!userfile) karmarestorationrate=r;
 }
 
 static void ag_rp_13(int i) {
-/* Line 159, /home1/sdh4/verynice/config.syn */
+/* Line 160, /home1/sdh4/verynice/config.syn */
 if (!userfile) periodicity=i;
 }
 
 static void ag_rp_14(int i) {
-/* Line 160, /home1/sdh4/verynice/config.syn */
+/* Line 161, /home1/sdh4/verynice/config.syn */
 if (!userfile) rereadcfgperiodicity=i;
 }
 
 static void ag_rp_15(int c) {
-/* Line 165, /home1/sdh4/verynice/config.syn */
+/* Line 166, /home1/sdh4/verynice/config.syn */
 InitString(Stk);AddChar(Stk,c);
 }
 
 static void ag_rp_16(int c) {
-/* Line 166, /home1/sdh4/verynice/config.syn */
+/* Line 167, /home1/sdh4/verynice/config.syn */
 AddChar(Stk,c);
 }
 
 static void ag_rp_17(int c) {
-/* Line 173, /home1/sdh4/verynice/config.syn */
+/* Line 174, /home1/sdh4/verynice/config.syn */
 InitString(Stk);AddChar(Stk,c);
 }
 
 static void ag_rp_18(char c) {
-/* Line 174, /home1/sdh4/verynice/config.syn */
+/* Line 175, /home1/sdh4/verynice/config.syn */
 InitString(Stk);AddChar(Stk,c);
 }
 

@@ -51,6 +51,12 @@ be killed improperly.
 <li> Linux kernel 2.2 or higher on any processor or 
 <li> Solaris on any processor (Tested with Solaris 2.7)
 </ul>
+<h3> Stability</h3>
+<p>
+VeryNice is known to be very stable. The 0.8 release was solid enough
+to run for more than 6 months without any problems. 1.0 should be at least as
+reliable, although only time will tell.  
+</p>
 <h3> Obtaining VeryNice</h3>
 <p>
 The VeryNice webpage is <A HREF=http://www.tam.cornell.edu/~sdh4/verynice/>http://www.tam.cornell.edu/~sdh4/verynice/</A>. 
@@ -65,7 +71,20 @@ VeryNice can be downloaded via http from
 It will automatically start on the next bootup. You can start it immedately
 with <tt>/etc/rc.d/init.d/verynice.init start</tt>
 </p>
-<h4> Build Configuration </h4>
+<h3> Quick start </h3>
+<p>
+Install the RPM and start the daemon (as above). This daemon, in the
+default configuration will:
+<ul>
+<li> renice CPU hungry processes to 'nicer' levels
+<li> renice multimedia applications to 'less nice' levels. 
+<li> renice, and eventually kill, particular applications that have been
+known to die and eat CPU: netscape, Fvwm, xfig, and gimp. 
+<li> Allow central and per-user configurations. 
+</ul>
+RPM will install this documentation in /usr/share/doc/verynice-[VERSION]
+</p>
+<h4> Compiling VeryNice </h4>
 <p>
 Once you unarchive the tarball, you need to configure VeryNice. Fortunately,
 this is quite simple. The parameters are listed below, and can be set either
@@ -76,7 +95,7 @@ when you do your <tt>make</tt> and <tt>make install</tt> (e.g.
 <table border=2>
 <tr><th colspan=4>Configuration options</th></tr>
 <tr><th>Parameter</th><th>Default</th><th>Other values</th><th>Meaning</th></tr>
-<tr><td>PREFIX</td><td>/usr/local</td><td>/usr, /usr/local/pub, /opt, etc.</td><td>Prefix for installation. Binary will go in PREFIX/sbin. Documentation will go in PREFIX/doc. Configuration file will go in PREFIX/etc unless PREFIX is /usr, in which case the configuration file will go in /etc.</tr>
+<tr><td>PREFIX</td><td>/usr/local</td><td>/usr, /usr/local/pub, /opt, etc.</td><td>Prefix for installation. Binary will go in PREFIX/sbin. Documentation will go in PREFIX/share/doc. Configuration file will go in PREFIX/etc unless PREFIX is /usr, in which case the configuration file will go in /etc.</tr>
 <tr><td>TARGET</td><td>linux</td><td>solaris</td><td>Operating system to compile for</td></tr>
 </table>
 <p>
@@ -106,6 +125,7 @@ verynice.init first.)
 <pre><tt>make clean ; make ; make install
 cp verynice.init /etc/rc.d/init.d
 chkconfig --add verynice.init</tt></pre>
+chkconfig verynice.init on
 </p>
 <h4> Signals </h4>
 <p>
