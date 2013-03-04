@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# verynice.init -- runs the VeryNice automatic renicer
+#                  http://www.tam.cornell.edu/~sdh4/verynice/
+#
+
+# Use RedHat (or whomever) function library.
+. /etc/rc.d/init.d/functions
+
+PREFIX=/usr/local
+
+case "$1" in
+    start)
+	echo -n "Starting VeryNice: "
+	daemon $(PREFIX)/verynice &
+	echo
+	touch /var/lock/subsys/verynice
+	;;
+    stop)
+	echo -n "Shutting down VeryNice: "
+	killproc verynice
+	echo
+	rm -f /var/lock/subsys/verynice
+	;;
+    status)
+	status verynice
+	;;
+    restart)    # reread configuration file and clear bad karma/nice levels
+	echo -n "Restarting VeryNice: "
+	killproc verynice -HUP
+	echo
+	;;
+    reconfig)   # reread configuration file 
+	echo -n "Rereading VeryNice configuration: "
+	killproc verynice -USR2
+	echo
+	;;
+    dump)   # dump process database to stderr+syslog
+	echo -n "Dumping VeryNice database to syslog: "
+	killproc verynice -USR1
+	echo
+	;;
+  *)
+	echo "Usage: verynice.init {start|stop|status|restart|reconfig|dump}"
+	exit 1
+esac
+
+exit 0
+

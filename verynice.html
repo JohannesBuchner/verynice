@@ -1,0 +1,169 @@
+<html><head><title>VeryNice</title></head>
+<body BGCOLOR=#ffffff>
+
+<!
+
+     VeryNice -- a dynamic process re-nicer
+     Copyright (C) 2000 Stephen D. Holland
+ 
+     This program is free software; you can redistribute it and/or modify
+     it under the terms of the GNU General Public License as published by
+     the Free Software Foundation; version 2 of the License.
+ 
+     This program is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     GNU General Public License for more details.
+ 
+     You should have received a copy of the GNU General Public License
+     along with this program; if not, write to the Free Software
+     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+
+>
+
+
+<h1 align=center> VeryNice</h1>
+<h2> A Dynamic Process Re-nicer </h2>
+<p>
+VeryNice is a tool for dynamically adjusting the nice-level of processes
+under UNIX-like operating systems. It can also be used to kill off 
+runaway processes and increase the priority of multimedia applications, 
+while properly handling both batch computation jobs and interactive 
+applications with long periods of high CPU usage. 
+</p>
+<p>
+Unlike most other process re-nice tools, VeryNice is not only capable of
+lowering a CPU bound process's priority (raising the nice level), but it is also 
+capable of <i>raising</i> the priority back up when the process is no longer
+heavily using the CPU. It is also configurable, so it can detect different 
+users and different programs and act accordingly. For example, it can 
+be configured to detect and kill certain programs (such as netscape) that have 
+a tendency to die with 100% cpu usage, but the program will only be killed
+under stringent conditions so that it is very unlikely that it would 
+be killed improperly. 
+</p>
+<h3> Requirements </h3>
+<ul>
+<li> Linux kernel 2.2 or higher on any processor or 
+<li> Solaris on any processor (Tested with Solaris 2.7)
+</ul>
+<h3> Obtaining VeryNice</h3>
+<p>
+The VeryNice webpage is <A HREF=http://www.tam.cornell.edu/~sdh4/verynice/>http://www.tam.cornell.edu/~sdh4/verynice/</A>. 
+<br>
+VeryNice can be downloaded via http from 
+<A HREF=http://www.tam.cornell.edu/~sdh4/verynice/down>http://www.tam.cornell.edu/~sdh4/verynice/down</a>
+</p>
+<h3> Installing VeryNice</h3>
+<h4> Build Configuration </h4>
+<p>
+Once you unarchive the tarball, you need to configure VeryNice. Fortunately,
+this is quite simple. The parameters are listed below, and can be set either
+by changing the Makefile, or by passing them on the make command line
+when you do your <tt>make</tt> and <tt>make install</tt> (e.g. 
+<tt>make PREFIX=/usr</tt> and <tt>make install PREFIX=/usr</tt>)
+</p>
+<table border=2>
+<tr><th colspan=4>Configuration options</th></tr>
+<tr><th>Parameter</th><th>Default</th><th>Other values</th><th>Meaning</th></tr>
+<tr><td>PREFIX</td><td>/usr/local</td><td>/usr, /usr/local/pub, /opt, etc.</td><td>Prefix for installation. Binary will go in PREFIX/sbin. Documentation will go in PREFIX/doc. Configuration file will go in PREFIX/etc unless PREFIX is /usr, in which case the configuration file will go in /etc.</tr>
+<tr><td>TARGET</td><td>linux</td><td>solaris</td><td>Operating system to compile for</td></tr>
+</table>
+<p>
+Often on Solaris you will need to add <tt>INSTALL=/usr/ucb/install</tt> for
+the <tt>make install</tt> to work properly.
+</p> 
+<h4> Compiling and Installing VeryNice</h4>
+<p>
+Just type (as root) <tt>make [opts] ; make install [opts] </tt> and VeryNice will 
+compile and install.
+</p>
+<h3> Running VeryNice </h3>
+<p>
+You will usually want to run VeryNice as root and in the background, e.g. 
+<tt>/usr/local/sbin/verynice &</tt>. Typically, you will want to install
+it to run automatically on startup, either from (/etc/rc.d/)<tt>rc.local</tt>
+or from a SYSV-style init script placed in /etc/rc.d/init.d with appropriate
+symbolic links in /etc/rc.d/rc*.d.
+</p>
+<h4> Signals </h4>
+<p>
+You can use the <tt>kill(1)</tt> command to send signals to VeryNice that
+will change it's execution. 
+<table border=2>
+<tr><th>Signal</th><th>Action</th></tr>
+<tr><td>SIGTERM, SIGINT, SIGQUIT</td><td>Un-renice processes and exit<td></tr>
+<tr><td>SIGHUP</td><td>Restart, clearing all nice levels</td></tr>
+<tr><td>SIGUSR1</td><td>Dump process database to syslog</td></tr>
+<tr><td>SIGUSR2</td><td>Reread configuration files (does not affect already-running processes)</td></tr>
+</table>
+<h3>Configuration</h3>
+<p>
+VeryNice automatically reads configuration information both from a central
+location (usually <tt>/etc/verynice.conf</tt> or <tt>/usr/local/etc/verynice.conf</tt>, depending
+on your PREFIX) and from the home directories of individual users, in
+the <tt>~/.verynicerc</tt> file. The format of both kinds of configuration 
+files is the same. More restrictive settings in the global configuration
+generally take precedence over individual users' settings. Of course the 
+settings in a user's <tt>~/.verynicerc</tt> file only affect that user's 
+processes. A sample verynice.conf file is usually installed in 
+/etc/verynice.conf or /usr/local/etc/verynice.conf.
+</p>
+<table border=2>
+<tr><th>Parameter</th><th>Function</th><th>Default</th><th>Values</th><th>Permissions</th><th>Multiple?</th></tr>
+
+<tr><td>notnice</td><td>Set the nice-level of "goodexe" processes</td><td> -4 </td><td>Any negative number greater than -20 </td><td>Central</td><td>no</td>
+<tr><td>batchjob</td><td>Set the nice-level of "badexe" processes</td><td> 18 </td><td>Any positive number less than 20</td><td>Central</td><td>no</td>
+<tr><td>runaway</td><td>Set the bad karma (nice) level at which runawayexe processes are killed with SIGKILL</td><td> 20 </td><td>Any positive number</td><td>Central</td><td>no</td></tr>
+<tr><td>term</td><td>Set the bad karma (nice) level at which runawayexe processes are killed with SIGTERM</td><td> 22 </td><td>Any positive number</td><td>Central</td><td>no</td></tr>
+
+<tr><td>badkarmarate</td><td>Set the amount of bad karma generated per second of 100% cpu usage (for small bad karma levels) </td><td> .0167 </td><td> Any positive real number </td><td>Central</td><td>no</td></tr>
+<tr><td>badkarmarestorationrate</td><td>Set the amount of bad karma removed per second of 0% cpu usage </td><td> .0167 </td><td> Any positive real number </td><td>Central</td><td>no</td></tr>
+
+<tr><td>periodicity</td><td>Set the approximate number of seconds between iterations through the process analysis code of VeryNice</td><td> 60 </td>  <td> Any positive integer. Large values use less CPU. Small values give more precise performance. </td><td>Central</td><td>no</td></tr>
+<tr><td>rereadcfgperiodicity</td><td>Set the approximate number of program cycles (periodicities, above)  between attempts to reread the configuration files of VeryNice</td><td> 60 </td>  <td> Any positive integer. Be aware that reconfiguring requires looking up the .verynicerc file in each user's home directory and does not affect existing processes. </td><td>Central</td><td>no</td></tr>
+
+<tr><td>immuneuser</td><td>Inhibit VeryNice from modifying the nice level of a user's processes, except for "goodexe", below, if set in the central config file.</td><td>(none)</td><td>Any user name, unquoted</td><td>Central</td><td>yes</td></tr>
+<tr><td>immuneexe</td><td>Inhibit VeryNice from modifying the nice level of certain executables</td><td>(none)</td><td>Any substring of the complete path to the executable, quoted with double quotes ("). If it begins with '/', it must match the complete path precisely. </td><td>Central/User</td><td>yes</td></tr>
+<tr><td>badexe</td><td>Force the nice level of an executable to the BATCHJOB level</td><td>(none)</td><td> (As above)</td><td>Central/User</td><td>yes</td></tr>
+<tr><td>goodexe</td><td>Force the nice level of an executable to the NOTNICE level. This is typically used for real-time multimedia applications which need high priority</td><td>(none)</td><td> (As above) </td><td>Central/User</td><td>yes</td></tr>
+<tr><td>runawayexe</td><td>Mark an executable as a potential runaway process. Only processes specially marked will ever be killed by VeryNice</td><td>(none)</td><td> (As above) </td><td>Central/User</td><td>yes</td></tr>
+</table>
+<h3> Security </h3>
+<p>
+VeryNice was written with security in mind, nevertheless is is impossible 
+to guarantee that there aren't any holes. Users in general CAN use VeryNice
+to renice their processes to negative nice values, up to the centrally configured "notnice" value (default -4). Remember, VeryNice runs 
+as root
+on the local host and does not support network access. However, it does 
+access and read information from individual users' configuration files.
+For security reasons, the configuration files will be used only if they 
+are regular files and are not symbolic links. 
+</p>
+<h3> Scalability </h3>
+<p>
+The primary scalability problem for the time being is the necessity to 
+read all the configuration files of all the users on startup, and periodically
+for updates. This could be a problem on networks with many fileservers and
+thousands of users. If you are in this situation, it might be a good idea
+to both add a random wait on bootup for the verynice startup (so your 
+fileservers don't get bogged down after a power failure) and also 
+dramatically increase the rereadcfgperiodicity, so the system doesn't 
+attempt to reread the configuration very often. 
+</p>
+<h3> Troubleshooting </h3>
+<table border=2>
+<tr><th>Problem</th><th>Possible cause</th></tr>
+<tr><td>VeryNice sets all processes (even root-owned) to nice-level zero
+on startup</td><td>VeryNice cannot find it's configuration file. Try a 'make clean' and rebuilding it with the proper PREFIX, then a make install with the same PREFIX. Make sure you're not running an old copy that was installed in another directory</td></tr>
+<tr><td>VeryNice uses an aweful lot of CPU and takes a while before renicing any processes on startup</td><td>VeryNice has to read all the user's configuration files before continuing. This can take a while if you have a lot of users or your fileserver is slow </td></tr>
+</table>
+<h3> License </h3>
+<A HREF=COPYING>GPL</A>
+<h3> Author </h3>
+Steve Holland <A HREF=mailto:sdh4@cornell.edu>sdh4@cornell.edu</a> 
+</body></html>
+
+
+ 

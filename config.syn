@@ -1,0 +1,309 @@
+{
+/*
+     VeryNice -- a dynamic process re-nicer
+     Copyright (C) 2000 Stephen D. Holland
+ 
+     This program is free software; you can redistribute it and/or modify
+     it under the terms of the GNU General Public License as published by
+     the Free Software Foundation; version 2 of the License.
+ 
+     This program is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     GNU General Public License for more details.
+ 
+     You should have received a copy of the GNU General Public License
+     along with this program; if not, write to the Free Software
+     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+*/
+
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include <pwd.h>
+#include <syslog.h>
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "linklist.h"
+#include "stringstack.h"
+
+#include "verynice.h"
+
+  struct Stack *Stk;
+
+
+  FILE *cfgin;
+  char *filename;
+  int userfile; /* is this global config, or owned by a user */
+  uid_t uid; /* uid if owned by a user */
+
+#define GET_INPUT ((PCB).input_code = fgetc(cfgin))
+#define SYNTAX_ERROR syslog(LOG_WARNING,"Config parse error %s. file: %s, line %d, column %d\n",(PCB).error_message,filename,(PCB).line,(PCB).column)
+#define PARSER_STACK_OVERFLOW syslog(LOG_WARNING,"Config parser stack overflow. file: %s, line %d, column %d\n",filename,(PCB).line,(PCB).column)
+#define REDUCTION_TOKEN_ERROR syslog(LOG_WARNING,"Config reduction token error. file: %s, line %d, column %d\n",filename,(PCB).line,(PCB).column)
+
+}
+
+EOF=-1
+DIGIT='0-9'
+EXPSYM='e'+'E'
+
+RegularChar=~('\\' + '"'+'\n'+'\r'+EOF)
+unquotedstringchar=~('\r'+'\n'+' '+'\t'+EOF)
+
+
+EOL='\r'+'\n'
+commentchars=~(EOL + EOF)
+ws=' '+'\t'
+
+
+ConfigFile $ 
+  ->	lines,EOF
+
+lines
+  -> ws?...
+  -> lines, line
+
+line
+  -> EOL
+  -> "#",commentchars?...,EOL
+  -> "immuneuser",ws?...,unquotedstring,ws?... ={
+    char *str;
+    struct immuneuid *u;
+    struct passwd *pwd;
+
+    str=PopString(Stk); /* get user name */
+    if (!userfile) { /* allow this option only for central config */
+      u=calloc(sizeof(struct immuneuid),1);
+      pwd=getpwnam(str);
+      u->uid=pwd->pw_uid;
+      AddTail(&iuidlist,(struct Node *)u);
+    }
+  }
+  -> "immuneexe",ws?...,quotedstring,ws?... ={
+    struct immuneexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct immuneexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&iexelist,(struct Node *)exe);
+  }
+  -> "badexe",ws?...,quotedstring,ws?... ={
+    struct badexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct badexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&bexelist,(struct Node *)exe);
+    
+    
+  }
+  -> "goodexe",ws?...,quotedstring,ws?... ={
+    struct goodexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct goodexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&gexelist,(struct Node *)exe);
+  }  
+  -> "runawayexe",ws?...,quotedstring,ws?... ={
+    struct runawayexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct runawayexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&runawaylist,(struct Node *)exe);
+  }
+  -> "notnice",ws?...,signed integer:i,ws?...  ={if(!userfile) notnice=i;}
+  -> "batchjob",ws?...,signed integer:i,ws?... ={if (!userfile) batchjob=i;}
+  -> "runaway",ws?...,signed integer:i,ws?... ={if (!userfile) runaway=i;}
+  -> "term",ws?...,signed integer:i,ws?... ={if(!userfile) term=i;}
+  -> "badkarmarate",ws?...,unsigned real:r,ws?... ={if (!userfile) badkarmarate=r;}
+  -> "badkarmarestorationrate",ws?...,unsigned real:r,ws?... ={if (!userfile) karmarestorationrate=r;}
+  -> "periodicity",ws?...,unsigned integer:i,ws?... ={if (!userfile) periodicity=i;}
+  -> "rereadcfgperiodicity",ws?...,unsigned integer:i,ws?...={if (!userfile) rereadcfgperiodicity=i;}
+
+
+
+unquotedstring
+  -> unquotedstringchar:c ={InitString(Stk);AddChar(Stk,c);}
+  -> unquotedstring,unquotedstringchar:c ={AddChar(Stk,c);}
+
+
+quotedstring
+  -> '\"',quotedstringchars,'\"'
+
+quotedstringchars
+  -> RegularChar:c ={InitString(Stk);AddChar(Stk,c);}
+  -> EscapeSequence:c ={InitString(Stk);AddChar(Stk,c);}
+  -> quotedstringchars, RegularChar:c =AddChar(Stk,c);
+  -> quotedstringchars, EscapeSequence:c =AddChar(Stk,c);
+
+(char)EscapeSequence
+  -> '\\','\\'   ='\\';
+  -> '\\','\"'   ='\"';
+  -> '\\','n'    ='\n';
+  -> '\\','r'    ='\r';
+
+(int)signed integer
+  -> unsigned integer:i =i;
+  -> '+',unsigned integer:i =i;
+  -> '-',unsigned integer:i =-i;
+
+(int)unsigned integer
+  -> DIGIT:d =(int)(d-'0');
+  -> unsigned integer:i, DIGIT:d =(i*10)+(int)(d-'0');
+
+
+(double)unsigned real
+  -> mantissa:m =m;
+  -> mantissa:m,EXPSYM,signed integer:e =pow(10,e)*m;
+
+(double)mantissa
+  -> integer part:i =i;
+  -> integer part:i,'.' =i;
+  -> integer part:i,'.',fraction part:f =i+f;
+  -> '.',fraction part:f =f;
+
+(double)integer part
+  -> DIGIT:d =(double)(d-'0');
+  -> integer part:i, DIGIT:d =(i*10.0)+(double)(d-'0');
+
+(double)fraction part
+  -> DIGIT:d =((double)(d-'0'))/10.0;
+  -> DIGIT:d,fraction part:f = (f+(double)(d-'0'))/10.0;
+
+
+
+{
+void DoConfig(char *Filename,FILE *Cfgin, int Userfile, uid_t Uid)
+  /* WARNING: side effects:
+       - Assumes syslog(3) is activated. Caller is responsible for opening/closing
+       - May open password database if not already open, and adjust location,
+         but only if userfile==0
+       - Caller is responsible for closing password database
+  */
+{
+  
+  Stk=InitStack();
+  /* set globals accesible by parser */
+  cfgin=Cfgin;
+  filename=Filename;
+  userfile=Userfile;
+  uid=Uid;
+
+  config(); /* run parser */
+
+  UnitStack(Stk);
+}
+
+void ReadCfgFiles(char *prefix)
+/* WARNING: side effects:
+       - Assumes syslog(3) is activated. Caller is responsible for opening/closing
+       - May open password database if not already open, and adjust location
+       - This routine closes password database
+  */
+{
+  char *centralname;
+  struct immuneuid *u;
+  struct immuneexe *i;
+  struct badexe *b;
+  struct goodexe *g;
+  struct runawayexe *r;
+  char *userfname;
+  struct stat filestat;
+  
+  FILE *f;
+  struct passwd *pwd;
+  
+
+  if (!strcmp(prefix,"/usr")) {
+    centralname=malloc(1+3+1+strlen(GLOBALCFGFILE)+1);
+    strcpy(centralname,"/etc/");
+    strcat(centralname,GLOBALCFGFILE);
+  } else {
+    centralname=malloc(strlen(prefix)+1+3+1+strlen(GLOBALCFGFILE)+1);
+    strcpy(centralname,prefix);
+    strcat(centralname,"/etc/");
+    strcat(centralname,GLOBALCFGFILE);
+  }
+  
+  /* clear out current cfg database */
+  while (u=(struct immuneuid *)RemHead(&iuidlist)) {
+    free(u);
+  }
+
+  while (i=(struct immuneexe *)RemHead(&iexelist)) {
+    free(i->exename);
+    free(i);
+  }
+
+  while (b=(struct badexe *)RemHead(&bexelist)) {
+    free(b->exename);
+    free(b);
+  }
+ 
+  while (g=(struct goodexe *)RemHead(&gexelist)) {
+    free(g->exename);
+    free(g);
+  }
+
+  while (r=(struct runawayexe *)RemHead(&runawaylist)) {
+    free(r->exename);
+    free(r);
+  }
+
+  /* load central config */
+  f=fopen(centralname,"r");
+  if (f) {
+    DoConfig(centralname,f,0,0);
+    fclose(f);
+  }
+  free(centralname);
+
+  /* load by-user config */
+  setpwent();
+  while (pwd=getpwent()) {
+    /* read per-user info */
+    userfname=malloc(strlen(pwd->pw_dir)+1+strlen(USERCFGFILE)+1);
+    strcpy(userfname,pwd->pw_dir);
+    strcat(userfname,"/");
+    strcat(userfname,USERCFGFILE);
+    if (!lstat(userfname,&filestat)) {
+      if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
+	/* regular file that exists and is not a symbolic link */
+	/* read it!!! */
+	f=fopen(userfname,"r");
+	DoConfig(userfname,f,1,pwd->pw_uid);
+	fclose(f);
+	
+
+      }
+    }
+    
+    free(userfname);
+  }
+
+
+  endpwent();
+}
+
+
+}
