@@ -37,6 +37,7 @@ struct procent {
 		  regardless of CPU usage */
   int potentialrunaway; /* very heavy CPU usage will cause this to be 
 			   set to RUNAWAY level */
+  int hungryflag; /* Always assume 100% cpu usage (not inherited) */ 
   char *exename; /* name of executable, separate malloc */
   int reallynew; /* set if this is really a new process or not */
   int deadflag; /* waiting to be expunged */
@@ -92,6 +93,27 @@ struct runawayexe { /* for apps that tend to get into runaway CPU usage
 };
 extern struct List runawaylist;
 
+struct hungryexe { 
+  /* for apps that are CPU hungry whether or not they appear to be
+     appear to be (e.g. make) */
+  struct Node Node;
+  char *exename;
+  int alluid; /* 1 if this applys to all uids, 0 if it applys only to uid,
+		 below */
+  uid_t uid;
+  
+};
+
+extern struct List hungrylist;
+
+struct knownuid { /* track the UID's for which we've attempted to read
+		     config information */
+  struct Node Node;
+  uid_t uid;
+};
+extern struct List uidlist;
+
+
 #define GLOBALCFGFILE "verynice.conf"
 #define USERCFGFILE ".verynicerc"
 
@@ -99,7 +121,7 @@ extern int normal;
 extern int notnice;
 extern int batchjob;
 extern int runaway;
-extern int term;
+extern int killproc;
 
 extern int periodicity;
 extern int rereadcfgperiodicity;
@@ -115,4 +137,13 @@ extern double karmarestorationrate;
   */
 void ReadCfgFiles(char *prefix);
 
+
+struct knownuid *finduid(uid_t uid);
+
+
+/* caller responsible for calling endpwent() after this */
+/* this reads in the config file, and adds an appropriate entry
+   to the known uid list 
+   (returns pointer to entry in known uid list) */
+struct knownuid *ReadCfgFile(uid_t uid);
 

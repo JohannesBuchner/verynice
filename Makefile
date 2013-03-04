@@ -17,17 +17,22 @@
 
 CC = gcc
 
+
+RPM_BUILD_ROOT=
+
 # PREFIX is usually either /usr or /usr/local
 PREFIX=/usr/local
 TARGET=linux
 
+
+INSTALL=install
 # Solaris users probably need to use this:
 #INSTALL=/usr/ucb/install
 
-VERSION=0.5
+VERSION=0.8
 
 #CFLAGS= -I../include/ -O3 -Wimplicit
-CFLAGS= -I../include/ -g -Wimplicit -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET)
+CFLAGS= -I../include/ -g -Wimplicit -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET) -DVERSION=\"$(VERSION)\"
 LINK = gcc 
 AG = /home3/sdh4/anagram/ag_unix_dev/ag
 
@@ -41,23 +46,45 @@ clean:
 distclean: clean
 	rm -f verynice
 
+# distribution build procedure:
+# make dist
+# as root: make buildrpm
+# make postbuildrpm
+
 dist: distclean
 	(cd .. ; tar cvzf verynice-$(VERSION).tar.gz verynice/ )
 
 install: 
-	install -d $(PREFIX)/sbin
-	install verynice $(PREFIX)/sbin	
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/sbin
+	$(INSTALL) verynice $(RPM_BUILD_ROOT)$(PREFIX)/sbin	
 	if [ $(PREFIX) = "/usr" ]; then \
-	  mv -f /etc/verynice.conf /etc/verynice.conf~ ; \
-	  install verynice.conf /etc ; \
+	  mv -f $(RPM_BUILD_ROOT)/etc/verynice.conf $(RPM_BUILD_ROOT)/etc/verynice.conf~ ; \
+	  $(INSTALL) verynice.conf $(RPM_BUILD_ROOT)/etc ; \
 	else \
-	  install -d $(PREFIX)/etc ; \
-	  mv -f $(PREFIX)/etc/verynice.conf $(PREFIX)/etc/verynice.conf~ ; \
-	  install verynice.conf $(PREFIX)/etc ; \
+	  $(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/etc ; \
+	  mv -f $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf~ ; \
+	  $(INSTALL) -m 644 verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc ; \
 	fi
-	install -d $(PREFIX)/doc 
-	install -d $(PREFIX)/doc/verynice-$(VERSION)
-	install verynice.html $(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/doc 
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 README $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 README.SYN $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 COPYING $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+	$(INSTALL) -m 644 CHANGELOG $(RPM_BUILD_ROOT)$(PREFIX)/doc/verynice-$(VERSION)
+
+
+buildrpm: 
+	cp ../verynice-$(VERSION).tar.gz /usr/src/redhat/SOURCES
+	rm -f /usr/src/redhat/SRPMS/verynice-$(VERSION)-1.src.rpm
+	rm -f /usr/src/redhat/RPMS/*/verynice-$(VERSION)-1.*.rpm
+ 
+	sed 's/VERSION/$(VERSION)/' <verynice.spec >/usr/src/redhat/SOURCES/verynice.spec
+	rpm -ba /usr/src/redhat/SOURCES/verynice.spec
+
+postbuildrpm:
+	cp /usr/src/redhat/SRPMS/verynice-$(VERSION)-1.src.rpm ..
+	cp /usr/src/redhat/RPMS/*/verynice-$(VERSION)-1.*.rpm ..
 
 %.c: %.syn
 	$(AG) -b $<

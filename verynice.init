@@ -1,19 +1,37 @@
 #!/bin/sh
 #
-# verynice.init -- runs the VeryNice automatic renicer
+# verynice.init    runs the VeryNice automatic renicer
 #                  http://www.tam.cornell.edu/~sdh4/verynice/
 #
+# Author:          Steve Holland <sdh4@cornell.edu> and
+#                  Leon Brooks <leon@brooks.fdns.net>, 
+#                  modified code by Miquel van Smoorenburg,
+#                  <miquels@drinkel.nl.mugnet.org> and 
+#	    	   Various folks at Red Hat (the inetd script)
+#
+# chkconfig: 345 90 10
+# description:	Nices down "naughty" programs (and eventually kills then \
+#		then sigKILLs them if they continue to misbehave). Nices \
+#		up (negative values) programs like xmms and the X server \
+#		for greater responsiveness.
+# processname:	verynice
+# pidfile:	/var/run/verynice.pid
+# config:	/etc/verynice.conf
+
 
 # Use RedHat (or whomever) function library.
 . /etc/rc.d/init.d/functions
 
-PREFIX=/usr/local
+export PREFIX=/usr/local
 
 case "$1" in
     start)
 	echo -n "Starting VeryNice: "
-	daemon $(PREFIX)/verynice &
+	daemon $PREFIX/sbin/verynice -d /var/run/verynice.pid
 	echo
+#	$PREFIX/sbin/verynice &
+#	pidof verynice >/var/run/verynice.pid
+#	echo Started.
 	touch /var/lock/subsys/verynice
 	;;
     stop)

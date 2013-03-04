@@ -1,0 +1,11 @@
+
+The "config.syn" source file for VeryNice is for use with the AnaGram
+parser generator. AnaGram will generate the "config.c" and "config.h"
+files from config.syn.  You can download a trial version of AnaGram
+from http://www.parsifalsoft.com.
+
+As of this writing, AnaGram is not yet available for Linux (the version
+used for development was a test release). Nevertheless, if you need to 
+recreate the config.c and config.h files, the Windows version will work just
+fine. 
+

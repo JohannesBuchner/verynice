@@ -17,9 +17,7 @@
      Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA
 
 */
-/* Copyright (C) 1992-1996 Stephen D.  Holland
-   All Rights Reserved
-   Unauthorized Distribution Prohibited */
+/* See linklist.c for documentation */
 
 #ifndef NULL
 #define NULL (void *)0L

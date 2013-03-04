@@ -16,6 +16,8 @@
      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+/* See "README.SYN" for information on converting this ".syn" syntax file
+   to C source code (".c" and ".h") */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,7 +78,7 @@
 config_pcb_type config_pcb;
 #define PCB config_pcb
 
-/*  Line 196, /home1/sdh4/verynice/config.syn */
+/*  Line 215, /home1/sdh4/verynice/config.syn */
 void DoConfig(char *Filename,FILE *Cfgin, int Userfile, uid_t Uid)
   /* WARNING: side effects:
        - Assumes syslog(3) is activated. Caller is responsible for opening/closing
@@ -98,6 +100,51 @@ void DoConfig(char *Filename,FILE *Cfgin, int Userfile, uid_t Uid)
   UnitStack(Stk);
 }
 
+struct knownuid *ReadCfgFile(uid_t uid) 
+  /* caller responsible for calling endpwent() after this */
+  /* this reads in the config file, and adds an appropriate entry
+     to the known uid list 
+     (returns pointer to entry in known uid list) */
+{
+  struct passwd *pwd;
+  char *userfname;
+  struct knownuid *k;
+  struct stat filestat;
+  FILE *f;
+
+  k=finduid(uid);
+  if (!k) {
+    k=calloc(sizeof(struct knownuid),1);
+    k->uid=uid;
+    AddTail(&uidlist,(struct Node *)k);
+  }
+
+  pwd=getpwuid(uid);
+  
+  if (pwd) {
+    /* read per-user info */
+    userfname=malloc(strlen(pwd->pw_dir)+1+strlen(USERCFGFILE)+1);
+    strcpy(userfname,pwd->pw_dir);
+    strcat(userfname,"/");
+    strcat(userfname,USERCFGFILE);
+    if (!lstat(userfname,&filestat)) {
+      if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
+	/* regular file that exists and is not a symbolic link */
+	/* read it!!! */
+	f=fopen(userfname,"r");
+	DoConfig(userfname,f,1,pwd->pw_uid);
+	fclose(f);
+	
+
+      }
+    }
+    
+    free(userfname);
+    
+  }
+  return k;
+}
+
 void ReadCfgFiles(char *prefix)
 /* WARNING: side effects:
        - Assumes syslog(3) is activated. Caller is responsible for opening/closing
@@ -111,8 +158,10 @@ void ReadCfgFiles(char *prefix)
   struct badexe *b;
   struct goodexe *g;
   struct runawayexe *r;
+  struct hungryexe *h;
   char *userfname;
-  struct stat filestat;
+  struct knownuid *k;
+  struct procent *proc;
   
   FILE *f;
   struct passwd *pwd;
@@ -154,6 +203,17 @@ void ReadCfgFiles(char *prefix)
     free(r);
   }
 
+  while (h=(struct hungryexe *)RemHead(&hungrylist)) {
+    free(h->exename);
+    free(h);
+  }
+
+  /* throw away known-user list */
+  while(k=(struct knownuid *)RemHead(&uidlist)) {
+    free(k);
+  }
+
+
   /* load central config */
   f=fopen(centralname,"r");
   if (f) {
@@ -163,28 +223,14 @@ void ReadCfgFiles(char *prefix)
   free(centralname);
 
   /* load by-user config */
-  setpwent();
-  while (pwd=getpwent()) {
-    /* read per-user info */
-    userfname=malloc(strlen(pwd->pw_dir)+1+strlen(USERCFGFILE)+1);
-    strcpy(userfname,pwd->pw_dir);
-    strcat(userfname,"/");
-    strcat(userfname,USERCFGFILE);
-    if (!lstat(userfname,&filestat)) {
-      if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
-	/* regular file that exists and is not a symbolic link */
-	/* read it!!! */
-	f=fopen(userfname,"r");
-	DoConfig(userfname,f,1,pwd->pw_uid);
-	fclose(f);
-	
-
-      }
+  /* build uid list and read in config info. */
+  for (proc=(struct procent *)proclist.lh_Head;proc->Node.ln_Succ;proc=(struct procent *)proc->Node.ln_Succ) {
+    k=finduid(proc->uid);
+    if (!k) {
+      ReadCfgFile(proc->uid); /* load in user info */
     }
-    
-    free(userfname);
   }
-
+  
 
   endpwent();
 }
@@ -199,23 +245,25 @@ void ReadCfgFiles(char *prefix)
 #endif
 
 static void ag_rp_1(void) {
-/* Line 76, /home1/sdh4/verynice/config.syn */
+/* Line 82, /home1/sdh4/verynice/config.syn */
     char *str;
     struct immuneuid *u;
     struct passwd *pwd;
 
     str=PopString(Stk); /* get user name */
     if (!userfile) { /* allow this option only for central config */
-      u=calloc(sizeof(struct immuneuid),1);
       pwd=getpwnam(str);
-      u->uid=pwd->pw_uid;
-      AddTail(&iuidlist,(struct Node *)u);
+      if (pwd) {
+	u=calloc(sizeof(struct immuneuid),1);
+	u->uid=pwd->pw_uid;
+	AddTail(&iuidlist,(struct Node *)u);
+      }
     }
   
 }
 
 static void ag_rp_2(void) {
-/* Line 89, /home1/sdh4/verynice/config.syn */
+/* Line 97, /home1/sdh4/verynice/config.syn */
     struct immuneexe *exe;
     char *str;
     
@@ -229,7 +277,7 @@ static void ag_rp_2(void) {
 }
 
 static void ag_rp_3(void) {
-/* Line 100, /home1/sdh4/verynice/config.syn */
+/* Line 108, /home1/sdh4/verynice/config.syn */
     struct badexe *exe;
     char *str;
     
@@ -245,7 +293,7 @@ static void ag_rp_3(void) {
 }
 
 static void ag_rp_4(void) {
-/* Line 113, /home1/sdh4/verynice/config.syn */
+/* Line 121, /home1/sdh4/verynice/config.syn */
     struct goodexe *exe;
     char *str;
     
@@ -259,7 +307,7 @@ static void ag_rp_4(void) {
 }
 
 static void ag_rp_5(void) {
-/* Line 124, /home1/sdh4/verynice/config.syn */
+/* Line 132, /home1/sdh4/verynice/config.syn */
     struct runawayexe *exe;
     char *str;
     
@@ -272,107 +320,121 @@ static void ag_rp_5(void) {
   
 }
 
-static void ag_rp_6(int i) {
-/* Line 134, /home1/sdh4/verynice/config.syn */
-if(!userfile) notnice=i;
+static void ag_rp_6(void) {
+/* Line 143, /home1/sdh4/verynice/config.syn */
+    struct hungryexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct hungryexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&hungrylist,(struct Node *)exe);
+  
 }
 
 static void ag_rp_7(int i) {
-/* Line 135, /home1/sdh4/verynice/config.syn */
-if (!userfile) batchjob=i;
+/* Line 153, /home1/sdh4/verynice/config.syn */
+if(!userfile) notnice=i;
 }
 
 static void ag_rp_8(int i) {
-/* Line 136, /home1/sdh4/verynice/config.syn */
-if (!userfile) runaway=i;
+/* Line 154, /home1/sdh4/verynice/config.syn */
+if (!userfile) batchjob=i;
 }
 
 static void ag_rp_9(int i) {
-/* Line 137, /home1/sdh4/verynice/config.syn */
-if(!userfile) term=i;
+/* Line 155, /home1/sdh4/verynice/config.syn */
+if (!userfile) runaway=i;
 }
 
-static void ag_rp_10(double r) {
-/* Line 138, /home1/sdh4/verynice/config.syn */
-if (!userfile) badkarmarate=r;
+static void ag_rp_10(int i) {
+/* Line 156, /home1/sdh4/verynice/config.syn */
+if(!userfile) killproc=i;
 }
 
 static void ag_rp_11(double r) {
-/* Line 139, /home1/sdh4/verynice/config.syn */
+/* Line 157, /home1/sdh4/verynice/config.syn */
+if (!userfile) badkarmarate=r;
+}
+
+static void ag_rp_12(double r) {
+/* Line 158, /home1/sdh4/verynice/config.syn */
 if (!userfile) karmarestorationrate=r;
 }
 
-static void ag_rp_12(int i) {
-/* Line 140, /home1/sdh4/verynice/config.syn */
+static void ag_rp_13(int i) {
+/* Line 159, /home1/sdh4/verynice/config.syn */
 if (!userfile) periodicity=i;
 }
 
-static void ag_rp_13(int i) {
-/* Line 141, /home1/sdh4/verynice/config.syn */
+static void ag_rp_14(int i) {
+/* Line 160, /home1/sdh4/verynice/config.syn */
 if (!userfile) rereadcfgperiodicity=i;
 }
 
-static void ag_rp_14(int c) {
-/* Line 146, /home1/sdh4/verynice/config.syn */
-InitString(Stk);AddChar(Stk,c);
-}
-
 static void ag_rp_15(int c) {
-/* Line 147, /home1/sdh4/verynice/config.syn */
-AddChar(Stk,c);
+/* Line 165, /home1/sdh4/verynice/config.syn */
+InitString(Stk);AddChar(Stk,c);
 }
 
 static void ag_rp_16(int c) {
-/* Line 154, /home1/sdh4/verynice/config.syn */
+/* Line 166, /home1/sdh4/verynice/config.syn */
+AddChar(Stk,c);
+}
+
+static void ag_rp_17(int c) {
+/* Line 173, /home1/sdh4/verynice/config.syn */
 InitString(Stk);AddChar(Stk,c);
 }
 
-static void ag_rp_17(char c) {
-/* Line 155, /home1/sdh4/verynice/config.syn */
+static void ag_rp_18(char c) {
+/* Line 174, /home1/sdh4/verynice/config.syn */
 InitString(Stk);AddChar(Stk,c);
 }
-
-#define ag_rp_18(c) (AddChar(Stk,c))
 
 #define ag_rp_19(c) (AddChar(Stk,c))
 
-#define ag_rp_20() ('\\')
+#define ag_rp_20(c) (AddChar(Stk,c))
 
-#define ag_rp_21() ('\"')
+#define ag_rp_21() ('\\')
 
-#define ag_rp_22() ('\n')
+#define ag_rp_22() ('\"')
 
-#define ag_rp_23() ('\r')
+#define ag_rp_23() ('\n')
 
-#define ag_rp_24(i) (i)
+#define ag_rp_24() ('\r')
 
 #define ag_rp_25(i) (i)
 
-#define ag_rp_26(i) (-i)
+#define ag_rp_26(i) (i)
 
-#define ag_rp_27(d) ((int)(d-'0'))
+#define ag_rp_27(i) (-i)
 
-#define ag_rp_28(i, d) ((i*10)+(int)(d-'0'))
+#define ag_rp_28(d) ((int)(d-'0'))
 
-#define ag_rp_29(m) (m)
+#define ag_rp_29(i, d) ((i*10)+(int)(d-'0'))
 
-#define ag_rp_30(m, e) (pow(10,e)*m)
+#define ag_rp_30(m) (m)
 
-#define ag_rp_31(i) (i)
+#define ag_rp_31(m, e) (pow(10,e)*m)
 
 #define ag_rp_32(i) (i)
 
-#define ag_rp_33(i, f) (i+f)
+#define ag_rp_33(i) (i)
 
-#define ag_rp_34(f) (f)
+#define ag_rp_34(i, f) (i+f)
 
-#define ag_rp_35(d) ((double)(d-'0'))
+#define ag_rp_35(f) (f)
 
-#define ag_rp_36(i, d) ((i*10.0)+(double)(d-'0'))
+#define ag_rp_36(d) ((double)(d-'0'))
 
-#define ag_rp_37(d) (((double)(d-'0'))/10.0)
+#define ag_rp_37(i, d) ((i*10.0)+(double)(d-'0'))
 
-#define ag_rp_38(d, f) ((f+(double)(d-'0'))/10.0)
+#define ag_rp_38(d) (((double)(d-'0'))/10.0)
+
+#define ag_rp_39(d, f) ((f+(double)(d-'0'))/10.0)
 
 
 #define READ_COUNTS 
@@ -406,8 +468,8 @@ static int ag_ap;
 
 static const unsigned char ag_rpx[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  3,  4,
-    5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,  0, 16, 17, 18, 19, 20, 21,
-   22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38
+    5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16,  0, 17, 18, 19, 20, 21,
+   22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39
 };
 
 static const unsigned char ag_key_itt[] = {
@@ -421,62 +483,63 @@ static const unsigned short ag_key_pt[] = {
 static const unsigned char ag_key_ch[] = {
     0, 97,101,255,114,255, 97,255,109,255,114,255, 97,255,101,107,255,100,
   116,255, 97,255,101,117,255,101,255,110,255,117,255,109,255,109,255,101,
-  255,121,255, 97,255,119,255, 97,255,110,255,101,117,255, 35, 98,103,105,
-  110,112,114,116,255
+  255,121,255, 97,255,119,255, 97,255,110,255,101,117,255, 35, 98,103,104,
+  105,107,110,112,114,255
 };
 
 static const unsigned char ag_key_act[] = {
   0,3,3,4,2,4,2,4,2,4,2,4,2,4,3,2,4,2,3,4,2,4,3,3,4,2,4,2,4,2,4,2,4,2,4,
-  3,4,1,4,2,4,2,4,2,4,2,4,3,2,4,0,2,3,2,3,3,2,3,4
+  3,4,1,4,2,4,2,4,2,4,2,4,3,2,4,0,2,3,3,2,3,3,3,2,4
 };
 
 static const unsigned char ag_key_parm[] = {
-    0, 25, 27,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 17,  0,  0,  0,
-   22,  0,  0,  0, 15, 13,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 19,
-    0, 23,  0,  0,  0,  0,  0,  0,  0,  0,  0, 30,  0,  0,  9,  0, 18,  0,
-   20, 28,  0, 24,  0
+    0, 26, 28,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 17,  0,  0,  0,
+   23,  0,  0,  0, 15, 13,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 19,
+    0, 24,  0,  0,  0,  0,  0,  0,  0,  0,  0, 31,  0,  0,  9,  0, 18, 20,
+    0, 25, 21, 29,  0,  0
 };
 
 static const unsigned char ag_key_jmp[] = {
     0,  3,  6,  0,  1,  0,  4,  0,  6,  0,  8,  0, 10,  0,  0, 12,  0, 14,
-   20,  0, 17,  0, 33, 36,  0, 22,  0, 25,  0, 27,  0, 29,  0, 31,  0, 77,
-    0, 35,  0, 37,  0, 39,  0, 41,  0, 43,  0, 58, 45,  0,  0, 20, 26, 33,
-   40, 47, 47, 80,  0
+   20,  0, 17,  0, 42, 45,  0, 22,  0, 25,  0, 27,  0, 29,  0, 31,  0, 90,
+    0, 35,  0, 37,  0, 39,  0, 41,  0, 43,  0, 71, 45,  0,  0, 20, 26, 33,
+   33, 49, 53, 60, 47,  0
 };
 
 static const unsigned char ag_key_index[] = {
    50, 50, 50,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 50, 50,  0, 50,
-   50, 50, 50,  0,  0, 50, 50, 50, 50, 50,  0, 50, 50, 50, 50, 50, 50, 50,
-    0, 50, 50,  0,  0
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 50, 50,
+    0, 50, 50, 50, 50,  0,  0, 50, 50, 50, 50, 50,  0, 50, 50, 50, 50, 50,
+   50, 50, 50,  0, 50, 50,  0,  0
 };
 
 static const unsigned char ag_key_ends[] = {
 120,101,0, 116,101,0, 115,116,111,114,97,116,105,111,110,114,97,116,101,0, 
-99,104,106,111,98,0, 111,111,100,101,120,101,0, 120,101,0, 
-115,101,114,0, 111,116,110,105,99,101,0, 
+99,104,106,111,98,0, 111,111,100,101,120,101,0, 
+117,110,103,114,121,101,120,101,0, 120,101,0, 115,101,114,0, 
+105,108,108,0, 111,116,110,105,99,101,0, 
 101,114,105,111,100,105,99,105,116,121,0, 
 114,101,97,100,99,102,103,112,101,114,105,111,100,105,99,105,116,121,0, 
-120,101,0, 101,114,109,0, 
+120,101,0, 
 };
 #define AG_TCV(x) (((int)(x) >= -1 && (int)(x) <= 255) ? ag_tcv[(x) + 1] : 0)
 
 static const unsigned char ag_tcv[] = {
-    3, 47, 47, 47, 47, 47, 47, 47, 47, 47,  4,  8, 47, 47,  8, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,  4, 47, 32,
-   47, 47, 47, 47, 47, 47, 47, 47, 39, 47, 40, 45, 47, 41, 41, 41, 41, 41,
-   41, 41, 41, 41, 41, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 43, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 36, 47, 47, 47, 47, 47, 47, 47, 47, 43, 47, 47, 47, 47, 47,
-   47, 47, 47, 37, 47, 47, 47, 38, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47, 47,
-   47, 47, 47, 47, 47
+    3, 48, 48, 48, 48, 48, 48, 48, 48, 48,  4,  8, 48, 48,  8, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,  4, 48, 33,
+   48, 48, 48, 48, 48, 48, 48, 48, 40, 48, 41, 46, 48, 42, 42, 42, 42, 42,
+   42, 42, 42, 42, 42, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 44, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 37, 48, 48, 48, 48, 48, 48, 48, 48, 44, 48, 48, 48, 48, 48,
+   48, 48, 48, 38, 48, 48, 48, 39, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
+   48, 48, 48, 48, 48
 };
 
 #ifndef SYNTAX_ERROR
@@ -650,7 +713,7 @@ static void ag_undo(void) {
 static const unsigned char ag_tstt[] = {
 4,0,1,2,5,6,
 4,0,
-30,28,27,25,24,23,22,20,19,18,17,15,13,9,8,3,0,7,
+31,29,28,26,25,24,23,21,20,19,18,17,15,13,9,8,3,0,7,
 4,0,5,6,
 4,0,5,6,
 4,0,5,6,
@@ -664,71 +727,73 @@ static const unsigned char ag_tstt[] = {
 4,0,5,6,
 4,0,5,6,
 4,0,5,6,
-47,45,43,41,40,39,38,37,36,32,4,0,11,12,
-41,0,29,
-41,0,29,
-45,41,0,26,42,44,
-45,41,0,26,42,44,
-41,40,39,0,21,29,
-41,40,39,0,21,29,
-41,40,39,0,21,29,
-41,40,39,0,21,29,
-32,0,16,
-32,0,16,
-32,0,16,
-32,0,16,
-47,45,43,41,40,39,38,37,36,32,0,14,
-47,45,43,41,40,39,38,37,36,32,4,0,
+4,0,5,6,
+48,46,44,42,41,40,39,38,37,33,4,0,11,12,
+42,0,30,
+42,0,30,
+46,42,0,27,43,45,
+46,42,0,27,43,45,
+42,41,40,0,22,30,
+42,41,40,0,22,30,
+42,41,40,0,22,30,
+42,41,40,0,22,30,
+33,0,16,
+33,0,16,
+33,0,16,
+33,0,16,
+33,0,16,
+48,46,44,42,41,40,39,38,37,33,0,14,
+48,46,44,42,41,40,39,38,37,33,4,0,
 8,0,
-41,4,0,5,6,
-41,4,0,5,6,
-41,0,46,
-45,41,0,
-43,0,
+42,4,0,5,6,
+42,4,0,5,6,
+42,0,47,
+46,42,0,
+44,0,
 4,0,5,6,
 4,0,5,6,
-41,0,29,
-41,0,29,
-41,0,
-4,0,5,6,
-4,0,5,6,
-4,0,5,6,
-4,0,5,6,
-47,45,43,41,40,39,38,37,36,4,0,33,35,
+42,0,30,
+42,0,30,
+42,0,
 4,0,5,6,
 4,0,5,6,
 4,0,5,6,
 4,0,5,6,
-47,45,43,41,40,39,38,37,36,32,4,0,5,6,
-41,0,46,
-41,0,46,
-41,40,39,0,21,29,
-41,0,
-41,0,
-38,37,36,32,0,
-47,45,43,41,40,39,38,37,36,32,4,0,35,
+48,46,44,42,41,40,39,38,37,4,0,34,36,
+4,0,5,6,
+4,0,5,6,
+4,0,5,6,
+4,0,5,6,
+4,0,5,6,
+48,46,44,42,41,40,39,38,37,33,4,0,5,6,
+42,0,47,
+42,0,47,
+42,41,40,0,22,30,
+42,0,
+42,0,
+39,38,37,33,0,
+48,46,44,42,41,40,39,38,37,33,4,0,36,
 
 };
 
 
-static unsigned const char ag_astt[299] = {
-  1,8,0,1,1,1,9,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,3,7,3,1,8,1,1,1,8,1,1,1,8,1,
-  1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,
-  1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,2,7,1,2,7,1,1,2,7,1,1,1,1,2,7,1,1,1,2,
-  1,1,7,1,1,2,1,1,7,1,1,2,1,1,7,1,1,2,1,1,7,1,1,1,7,1,1,7,1,1,7,1,1,7,1,2,2,
-  2,2,2,2,2,2,2,2,7,1,9,9,9,9,9,9,9,9,9,9,9,5,3,7,10,1,5,1,2,10,1,5,1,2,1,7,
-  2,1,10,4,1,4,1,5,1,2,1,5,1,2,2,7,1,2,7,1,10,4,1,5,1,2,1,5,1,2,1,5,1,2,1,5,
-  1,2,2,2,2,2,2,2,2,2,1,2,7,1,2,1,5,1,2,1,5,1,2,1,5,1,2,1,5,1,2,10,10,10,10,
-  10,10,10,10,10,10,1,5,1,2,1,4,2,1,4,2,2,1,1,7,2,1,10,4,10,4,2,2,2,2,7,10,
-  10,10,10,10,10,10,10,1,3,10,7,2
+static unsigned const char ag_astt[311] = {
+  1,8,0,1,1,1,9,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,3,7,3,1,8,1,1,1,8,1,1,1,8,
+  1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,1,1,8,1,
+  1,1,8,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,2,7,1,2,7,1,1,2,7,1,1,1,1,2,
+  7,1,1,1,2,1,1,7,1,1,2,1,1,7,1,1,2,1,1,7,1,1,2,1,1,7,1,1,1,7,1,1,7,1,1,7,1,
+  1,7,1,1,7,1,2,2,2,2,2,2,2,2,2,2,7,1,9,9,9,9,9,9,9,9,9,9,9,5,3,7,10,1,5,1,2,
+  10,1,5,1,2,1,7,2,1,10,4,1,4,1,5,1,2,1,5,1,2,2,7,1,2,7,1,10,4,1,5,1,2,1,5,1,
+  2,1,5,1,2,1,5,1,2,2,2,2,2,2,2,2,2,1,2,7,1,2,1,5,1,2,1,5,1,2,1,5,1,2,1,5,1,
+  2,1,5,1,2,10,10,10,10,10,10,10,10,10,10,1,5,1,2,1,4,2,1,4,2,2,1,1,7,2,1,10,
+  4,10,4,2,2,2,2,7,10,10,10,10,10,10,10,10,1,3,10,7,2
 };
 
 
 static const unsigned char ag_pstt[] = {
 1,2,0,2,1,2,
 3,5,
-3,4,5,6,7,8,9,10,11,12,13,14,15,16,7,1,2,7,
-1,17,1,17,
+3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,7,1,2,7,
 1,18,1,18,
 1,19,1,19,
 1,20,1,20,
@@ -741,80 +806,84 @@ static const unsigned char ag_pstt[] = {
 1,27,1,27,
 1,28,1,28,
 1,29,1,29,
-30,30,30,30,30,30,30,30,30,30,30,31,30,31,
-41,17,32,
-41,18,33,
-34,49,19,37,36,35,
-34,49,20,38,36,35,
-41,39,40,21,42,41,
-41,39,40,22,43,41,
-41,39,40,23,44,41,
-41,39,40,24,45,41,
-46,25,47,
-46,26,48,
-46,27,49,
-46,28,50,
-27,27,27,27,27,27,27,27,27,27,29,51,
+1,30,1,30,
+1,31,1,31,
+32,32,32,32,32,32,32,32,32,32,32,33,32,33,
+42,18,34,
+42,19,35,
+36,50,20,39,38,37,
+36,50,21,40,38,37,
+42,41,42,22,44,43,
+42,41,42,23,45,43,
+42,41,42,24,46,43,
+42,41,42,25,47,43,
+48,26,49,
+48,27,50,
+48,28,51,
+48,29,52,
+48,30,53,
+28,28,28,28,28,28,28,28,28,28,31,54,
 10,10,10,10,10,10,10,10,10,10,10,12,
-13,31,
-42,1,4,1,26,
-42,1,4,1,25,
-52,34,48,
-53,50,45,
-54,43,
+13,33,
+43,1,4,1,27,
+43,1,4,1,26,
+55,36,49,
+56,51,46,
+57,44,
+1,4,1,25,
 1,4,1,24,
+42,41,58,
+42,42,59,
+43,39,
 1,4,1,23,
-41,39,55,
-41,40,56,
-42,38,
 1,4,1,22,
 1,4,1,21,
 1,4,1,20,
+31,31,31,31,31,31,31,31,60,31,48,61,32,
 1,4,1,19,
-30,30,30,30,30,30,30,30,57,30,46,58,31,
 1,4,1,18,
 1,4,1,17,
 1,4,1,16,
 1,4,1,15,
-28,28,28,28,28,28,28,28,28,28,1,4,1,14,
-52,51,52,
-52,46,47,
-41,39,40,54,44,41,
-42,40,
-42,39,
-37,36,34,35,57,
-32,32,32,32,32,32,32,32,57,29,32,58,33,
+29,29,29,29,29,29,29,29,29,29,1,4,1,14,
+55,52,53,
+55,47,48,
+42,41,42,57,45,43,
+43,41,
+43,40,
+38,37,35,36,60,
+33,33,33,33,33,33,33,33,60,30,33,61,34,
 
 };
 
 
 static const unsigned short ag_sbt[] = {
-     0,   6,   8,  26,  30,  34,  38,  42,  46,  50,  54,  58,  62,  66,
-    70,  74,  78,  92,  95,  98, 104, 110, 116, 122, 128, 134, 137, 140,
-   143, 146, 158, 170, 172, 177, 182, 185, 188, 190, 194, 198, 201, 204,
-   206, 210, 214, 218, 222, 235, 239, 243, 247, 251, 265, 268, 271, 277,
-   279, 281, 286, 299
+     0,   6,   8,  27,  31,  35,  39,  43,  47,  51,  55,  59,  63,  67,
+    71,  75,  79,  83,  97, 100, 103, 109, 115, 121, 127, 133, 139, 142,
+   145, 148, 151, 154, 166, 178, 180, 185, 190, 193, 196, 198, 202, 206,
+   209, 212, 214, 218, 222, 226, 230, 243, 247, 251, 255, 259, 263, 277,
+   280, 283, 289, 291, 293, 298, 311
 };
 
 
 static const unsigned short ag_sbe[] = {
-     1,   7,  24,  27,  31,  35,  39,  43,  47,  51,  55,  59,  63,  67,
-    71,  75,  89,  93,  96, 100, 106, 113, 119, 125, 131, 135, 138, 141,
-   144, 156, 169, 171, 174, 179, 183, 187, 189, 191, 195, 199, 202, 205,
-   207, 211, 215, 219, 232, 236, 240, 244, 248, 262, 266, 269, 274, 278,
-   280, 285, 297, 299
+     1,   7,  25,  28,  32,  36,  40,  44,  48,  52,  56,  60,  64,  68,
+    72,  76,  80,  94,  98, 101, 105, 111, 118, 124, 130, 136, 140, 143,
+   146, 149, 152, 164, 177, 179, 182, 187, 191, 195, 197, 199, 203, 207,
+   210, 213, 215, 219, 223, 227, 240, 244, 248, 252, 256, 260, 274, 278,
+   281, 286, 290, 292, 297, 309, 311
 };
 
 
 static const unsigned char ag_fl[] = {
-  1,2,1,2,0,1,1,2,1,1,2,0,1,3,4,4,4,4,4,4,4,4,4,4,4,4,4,1,2,3,1,1,2,2,2,
-  2,2,2,1,2,2,1,2,1,3,1,2,3,2,1,2,1,2
+  1,2,1,2,0,1,1,2,1,1,2,0,1,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,1,2,3,1,1,2,2,
+  2,2,2,2,1,2,2,1,2,1,3,1,2,3,2,1,2,1,2
 };
 
 static const unsigned char ag_ptt[] = {
     0,  1,  5,  5,  6,  6,  2,  2,  7, 11, 11, 12, 12,  7,  7,  7,  7,  7,
-    7,  7,  7,  7,  7,  7,  7,  7,  7, 14, 14, 16, 33, 33, 33, 33, 35, 35,
-   35, 35, 21, 21, 21, 29, 29, 26, 26, 42, 42, 42, 42, 44, 44, 46, 46
+    7,  7,  7,  7,  7,  7,  7,  7,  7,  7, 14, 14, 16, 34, 34, 34, 34, 36,
+   36, 36, 36, 22, 22, 22, 30, 30, 27, 27, 43, 43, 43, 43, 45, 45, 47, 47
 };
 
 
@@ -828,44 +897,45 @@ static void ag_ra(void)
   case   3: ag_rp_3(); break;
   case   4: ag_rp_4(); break;
   case   5: ag_rp_5(); break;
-  case   6: ag_rp_6(V(2,int)); break;
+  case   6: ag_rp_6(); break;
   case   7: ag_rp_7(V(2,int)); break;
   case   8: ag_rp_8(V(2,int)); break;
   case   9: ag_rp_9(V(2,int)); break;
-  case  10: ag_rp_10(V(2,double)); break;
+  case  10: ag_rp_10(V(2,int)); break;
   case  11: ag_rp_11(V(2,double)); break;
-  case  12: ag_rp_12(V(2,int)); break;
+  case  12: ag_rp_12(V(2,double)); break;
   case  13: ag_rp_13(V(2,int)); break;
-  case  14: ag_rp_14(V(0,int)); break;
-  case  15: ag_rp_15(V(1,int)); break;
-  case  16: ag_rp_16(V(0,int)); break;
-  case  17: ag_rp_17(V(0,char)); break;
-  case  18: ag_rp_18(V(1,int)); break;
-  case  19: ag_rp_19(V(1,char)); break;
-  case  20: V(0,char) = ag_rp_20(); break;
+  case  14: ag_rp_14(V(2,int)); break;
+  case  15: ag_rp_15(V(0,int)); break;
+  case  16: ag_rp_16(V(1,int)); break;
+  case  17: ag_rp_17(V(0,int)); break;
+  case  18: ag_rp_18(V(0,char)); break;
+  case  19: ag_rp_19(V(1,int)); break;
+  case  20: ag_rp_20(V(1,char)); break;
   case  21: V(0,char) = ag_rp_21(); break;
   case  22: V(0,char) = ag_rp_22(); break;
   case  23: V(0,char) = ag_rp_23(); break;
-  case  24: V(0,int) = ag_rp_24(V(0,int)); break;
-  case  25: V(0,int) = ag_rp_25(V(1,int)); break;
+  case  24: V(0,char) = ag_rp_24(); break;
+  case  25: V(0,int) = ag_rp_25(V(0,int)); break;
   case  26: V(0,int) = ag_rp_26(V(1,int)); break;
-  case  27: V(0,int) = ag_rp_27(V(0,int)); break;
-  case  28: V(0,int) = ag_rp_28(V(0,int), V(1,int)); break;
-  case  29: V(0,double) = ag_rp_29(V(0,double)); break;
-  case  30: V(0,double) = ag_rp_30(V(0,double), V(2,int)); break;
-  case  31: V(0,double) = ag_rp_31(V(0,double)); break;
+  case  27: V(0,int) = ag_rp_27(V(1,int)); break;
+  case  28: V(0,int) = ag_rp_28(V(0,int)); break;
+  case  29: V(0,int) = ag_rp_29(V(0,int), V(1,int)); break;
+  case  30: V(0,double) = ag_rp_30(V(0,double)); break;
+  case  31: V(0,double) = ag_rp_31(V(0,double), V(2,int)); break;
   case  32: V(0,double) = ag_rp_32(V(0,double)); break;
-  case  33: V(0,double) = ag_rp_33(V(0,double), V(2,double)); break;
-  case  34: V(0,double) = ag_rp_34(V(1,double)); break;
-  case  35: V(0,double) = ag_rp_35(V(0,int)); break;
-  case  36: V(0,double) = ag_rp_36(V(0,double), V(1,int)); break;
-  case  37: V(0,double) = ag_rp_37(V(0,int)); break;
-  case  38: V(0,double) = ag_rp_38(V(0,int), V(1,double)); break;
+  case  33: V(0,double) = ag_rp_33(V(0,double)); break;
+  case  34: V(0,double) = ag_rp_34(V(0,double), V(2,double)); break;
+  case  35: V(0,double) = ag_rp_35(V(1,double)); break;
+  case  36: V(0,double) = ag_rp_36(V(0,int)); break;
+  case  37: V(0,double) = ag_rp_37(V(0,double), V(1,int)); break;
+  case  38: V(0,double) = ag_rp_38(V(0,int)); break;
+  case  39: V(0,double) = ag_rp_39(V(0,int), V(1,double)); break;
   }
 }
 
 #define TOKEN_NAMES config_token_names
-const char *const config_token_names[48] = {
+const char *const config_token_names[49] = {
   "ConfigFile",
   "ConfigFile",
   "lines",
@@ -883,6 +953,7 @@ const char *const config_token_names[48] = {
   "unquotedstring",
   "",
   "quotedstring",
+  "",
   "",
   "",
   "",

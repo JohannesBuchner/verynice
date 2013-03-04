@@ -20,6 +20,24 @@
 #include <string.h>
 #include "linklist.h"
 
+/* linklist.c -- This API is derived from the link list routines 
+   that were included as part of the original Amiga operating system.
+
+   The basic idea is to provide a doubly linked-list system with a 
+   minimum of special cases required in the handling code. This is
+   achieved by having two permanent members ("nodes") of the list, 
+   called the Head and the Tail, that are never removed and have no
+   actual data associated with them. Because these members are permanent,
+   there are no special cases involved with removing or adding the first
+   or last nodes of the list. 
+
+   The head and tail nodes are contained within the "List" structure, and
+   actually overlap! The "Predecessor" field of the head node is the 
+   same as the "Successor" field of the tail node (both are always NULL). 
+
+   Lists must be initialized with NewList() before they can be used. */
+
+
 void Insert(struct List *ThisList,struct Node *AddNode,struct Node *Pred)
 {
 	if (AddNode==NULL) return;

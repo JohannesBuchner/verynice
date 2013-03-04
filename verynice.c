@@ -41,6 +41,8 @@
 
 #include "verynice.h"
 
+char *versionstring="VeryNice version " VERSION " Copyright (C) 1992-2000 Stephen D. Holland.\nThis program is distributed under the terms of the GNU General Public License,\nversion 2.\n";
+
 #define min_mac(a,b) (((a) < (b)) ? (a) : (b))
 
 /*#define PREFIX "/usr/local"*/  /* PREFIX should be defined on compiler
@@ -51,16 +53,16 @@
 #define NORMAL 0  /* DON'T change this one */
 #define NOTNICE -4 /* intended for multimedia apps, etc. */
 #define BATCHJOB 18 
-#define RUNAWAY 20 /* SIGKILL level */
-#define TERM 22 /* SIGTERM level */
+#define RUNAWAY 20 /* SIGTERM level */
+#define KILLPROC 22 /* SIGKILL level */
 
 int normal=NORMAL;
 int notnice=NOTNICE;
 int batchjob=BATCHJOB;
 int runaway=RUNAWAY;
-int term=TERM;
+int killproc=KILLPROC;
 
-int numprocessors=1; /* FIXME: Should autodetect (grep processor /proc/cpuinfo |wc -l */
+int numprocessors=1; 
 
 
 #define PERIODICITY 60 /* period of checking processes, in seconds */
@@ -100,6 +102,11 @@ struct List gexelist;
 
 struct List runawaylist;
 
+struct List hungrylist;
+
+
+struct List uidlist;
+
 
 volatile int killflag=0;
 volatile int hupflag=0;
@@ -108,7 +115,7 @@ volatile int reconfigflag=0;
 
 void killhandler(int signum)
 {
-  killflag=1;
+  killflag=signum;
 }
 
 void huphandler(int signum)
@@ -195,6 +202,20 @@ struct procent *procfindbypid(struct List *plist,pid_t pid)
       return proc;
   }
   return NULL;
+
+}
+
+struct knownuid *finduid(uid_t uid)
+     /* search for a UID in the uidlist */
+{
+  struct knownuid *k;
+
+  for (k=(struct knownuid *)uidlist.lh_Head;k->Node.ln_Succ;k=(struct knownuid *)k->Node.ln_Succ) {
+    if (k->uid==uid) {
+      return k;
+    }
+  }
+  return NULL;
 }
 
 #ifdef TARGET_linux
@@ -221,7 +242,6 @@ void ReadProcs(struct List *Target)
   unsigned long utime;
   unsigned long stime;
   int niceval;
-  char *exename;
   struct stat statbuf;
 
   dir=opendir("/proc");
@@ -449,7 +469,13 @@ int MatchString(char *str,char *substr)
 int MatchExe(char *exe,char *pattern)
 {
   if (pattern[0]=='/') {
+#ifdef TARGET_solaris
+    /* on solaris, we don't get the full path anyway, so we make the leading
+       slash trigger a precise comparison, but w/out the slash */
+    return !strcmp(exe,pattern+1);
+#else
     return !strcmp(exe,pattern);
+#endif
   } else return(MatchString(exe,pattern));
 }
 
@@ -460,12 +486,23 @@ void SetProcFlags(struct procent *proc)
   struct immuneexe *i;
   struct runawayexe *r;
   struct goodexe *g;
+  struct hungryexe *h;
+  struct knownuid *k;
 
 
   /* If root sets a "goodexe" priority, it will even apply to immune uid's.
      This is so you can make root immune, but force setting X to the "goodexe"
      priority (X is basically a multimedia app and should be scheduled as such)
   */
+
+  /* first, check if this user is known. If not, load user's config info */
+  k=finduid(proc->uid);
+  if (!k) {
+    k=ReadCfgFile(proc->uid);
+    endpwent(); /* close password file */
+  }
+  
+
 
   for (g=(struct goodexe *)gexelist.lh_Head;g->Node.ln_Succ;g=(struct goodexe *)g->Node.ln_Succ) {
     if (g->alluid) {
@@ -502,7 +539,17 @@ void SetProcFlags(struct procent *proc)
     }
   }
 
-
+  for (h=(struct hungryexe *)hungrylist.lh_Head;h->Node.ln_Succ;h=(struct hungryexe *)h->Node.ln_Succ) {
+    if (h->alluid || h->uid==proc->uid) {
+      if (MatchExe(proc->exename,h->exename)) {
+	proc->hungryflag=1;
+	break;
+      }
+      
+    }
+  }
+  
+  
   for (r=(struct runawayexe *)runawaylist.lh_Head;r->Node.ln_Succ;r=(struct runawayexe *)r->Node.ln_Succ) {
     if (r->alluid || r->uid==proc->uid) {
       if (MatchExe(proc->exename,r->exename)) {
@@ -727,7 +774,11 @@ void ReniceProcs(double deltat)
     errno=0;
     actualnicelevel=getpriority(PRIO_PROCESS,proc->pid);
     if (errno) {
-      syslog(LOG_WARNING,"Error reading process priority");
+#ifndef TARGET_solaris /* on Solaris sometimes we end up seeing process groups
+			  instead, or something, so this fails and starts
+			  filling up the syslog */
+      syslog(LOG_WARNING,"Error reading process priority for pid %d: %m",(int)proc->pid);
+#endif
       actualnicelevel=0;
     } else {
       proc->nicelevel=actualnicelevel;
@@ -738,7 +789,13 @@ void ReniceProcs(double deltat)
       /* badkarmaincreasefactor makes the badkarma increase smaller once you 
 	 have some. The idea is that processes will find a reasonable steady-state */
       badkarmaincreasefactor=1/(1+4*min_mac(proc->badkarma,batchjob)/batchjob);
-      badkarmaincrease=proc->current_cpuusage*deltat*karmarate*badkarmaincreasefactor - deltat*karmarecoverrate*(largest-proc->current_cpuusage);
+
+      if (proc->hungryflag) /* assume CPU hungry process */
+	badkarmaincrease=deltat*badkarmarate*badkarmaincreasefactor;
+      else	  
+	badkarmaincrease=proc->current_cpuusage*deltat*karmarate*badkarmaincreasefactor - deltat*karmarecoverrate*(largest-proc->current_cpuusage);
+
+
       if (badkarmaincrease > 1.0) badkarmaincrease=1.0; /* upper bound rate of
 							   increase of bad karma */
       proc->badkarma+=badkarmaincrease;
@@ -782,12 +839,12 @@ void ReniceProcs(double deltat)
       proc->reniced=0;
     }
 
-    if (proc->potentialrunaway && proc->badkarma > term) {
-      syslog(LOG_WARNING,"Sending SIGTERM to process %ld, uid %ld. BadKarma=%g",(long)proc->pid,(long)proc->uid,(double)proc->badkarma);
-      kill(proc->pid,SIGTERM); /* die!!! */
+    if (proc->potentialrunaway && proc->badkarma > killproc) {
+      syslog(LOG_WARNING,"Sending SIGKILL to process %ld, uid %ld. BadKarma=%g",(long)proc->pid,(long)proc->uid,(double)proc->badkarma);
+      kill(proc->pid,SIGKILL); /* die!!! */
     } else if (proc->potentialrunaway && proc->badkarma > runaway) { 
       syslog(LOG_WARNING,"Sending SIGKILL to process %ld, uid %ld. BadKarma=%g",(long)proc->pid,(long)proc->uid,(double)proc->badkarma);
-      kill(proc->pid,SIGKILL);
+      kill(proc->pid,SIGTERM);
     }
 
   }
@@ -812,12 +869,13 @@ void performdump(void)
   struct procent *proc;
   
   for (proc=(struct procent *)proclist.lh_Head;proc->Node.ln_Succ;proc=(struct procent *)proc->Node.ln_Succ) {
-    syslog(LOG_INFO,"%s: pid %ld, nice %ld+%ld, parent %ld, at %g secs CPU (current %g), badkarma %g, uid %ld %s %s %s %s",proc->exename,(long)proc->pid,(long)(proc->nicelevel-proc->reniced),(long)proc->reniced,(long)proc->parentpid,(double)proc->cpuusage,(double)proc->current_cpuusage,(double)proc->badkarma,(long)proc->uid,(proc->immuneflag==0) ? "":"immune",(proc->goodflag==0) ? "":"good",(proc->badflag==0) ? "":"bad",(proc->potentialrunaway==0) ? "": "potentialrunaway");
+    syslog(LOG_INFO,"%s: pid %ld, nice %ld+%ld, parent %ld, at %g secs CPU (current %g), badkarma %g, uid %ld %s %s %s %s %s",proc->exename,(long)proc->pid,(long)(proc->nicelevel-proc->reniced),(long)proc->reniced,(long)proc->parentpid,(double)proc->cpuusage,(double)proc->current_cpuusage,(double)proc->badkarma,(long)proc->uid,(proc->immuneflag==0) ? "":"immune",(proc->goodflag==0) ? "":"good",(proc->badflag==0) ? "":"bad",(proc->potentialrunaway==0) ? "": "potentialrunaway",(proc->hungryflag==0) ? "":"hungry");
     
     
   }
 }
 
+#ifdef TARGET_linux
 int CountCPUs(void)
 {
   FILE *cpuinfo;
@@ -839,11 +897,70 @@ int CountCPUs(void)
 
   return numcpus;
 }
+#endif /*TARGET_linux */
 
-int main()
+#ifdef TARGET_solaris
+int CountCPUs(void)
+{
+  syslog(LOG_WARNING,"Can not detect number of CPU's on Solaris. Assuming 1\n");
+
+  return 1;
+}
+
+#endif /* TARGET_solaris */
+
+
+int main(int argc, char *argv[])
 {
   int Cnt;
   struct timeval start,end,lastmeas;
+  char *daemonpidfile=NULL;
+  pid_t mypid;
+  FILE *pidfile;
+
+
+  /* process arguments */
+
+  for (Cnt=0; Cnt < argc; Cnt++) {
+    if (!strcmp("-v",argv[Cnt])) {
+      printf("%s",versionstring);
+      exit(0);
+    }
+    else if (!strcmp("-d",argv[Cnt])) {
+      /* daemon. Next arg is name of PID file */
+      daemonpidfile=argv[Cnt+1];
+      Cnt++;
+    }
+    else if (!strcmp("-h",argv[Cnt])) {
+      printf("Usage: %s -v -d [pidfile] -h\n"
+	     "       -v            -- print version information and exit\n"
+	     "       -d [pidfile]  -- run as daemon, writing process ID to pidfile.\n"
+	     "       -h            -- generate this help text, and exit.\n",argv[0]);
+      exit(0);
+    }
+  }
+
+  if (daemonpidfile) {
+    /* if we're supposed to be a daemon */
+    if (mypid=fork()) {
+      if (mypid==-1) {
+	/* failure */
+	perror("Error forking process\n");
+	exit(1);
+      }
+      /* write process id to pid file and exit */
+      pidfile=fopen(daemonpidfile,"w");
+      if (pidfile) {
+	fprintf(pidfile,"%ld\n",(long)mypid);
+	fclose(pidfile);
+	exit(0);
+      } else {
+	fprintf(stderr,"Error writing process ID file: %s\n",daemonpidfile);
+	exit(1);
+      }
+    }
+  }
+  
 
   start.tv_sec=0;
   start.tv_usec=0;
@@ -867,13 +984,17 @@ int main()
   NewList(&bexelist);
   NewList(&gexelist);
   NewList(&runawaylist);
+  NewList(&hungrylist);
+
+  NewList(&uidlist);
   
   /* open syslog */
 #ifdef TARGET_linux /* LOG_PERROR is not standard */
-  openlog("verynice",LOG_PERROR,LOG_DAEMON);
+  openlog("verynice",(daemonpidfile==NULL) ? LOG_PERROR:0,LOG_DAEMON);
 #else
   openlog("verynice",0,LOG_DAEMON);
 #endif
+  syslog(LOG_WARNING,"starting up");
 
   numprocessors=CountCPUs();
   if (numprocessors < 1 || numprocessors > 100) numprocessors=1;
@@ -931,9 +1052,10 @@ int main()
     }
     if (!killflag) sleep(1+periodicity/8);
   }
-
+  syslog(LOG_WARNING,"exiting on signal %d...",(int)killflag);
   UnniceProcs();
   closelog();
+  return 0;
 }
 
 

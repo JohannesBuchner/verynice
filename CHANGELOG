@@ -1,0 +1,17 @@
+VeryNice 0.8
+------------
+A working SysV style init script is now provided. 
+-d [pidfile] option for automatic process-id file generation added. 
+"hungryexe" option added
+VeryNice now only looks up per-user configuration information for users
+who are actually logged in, not all users with accounts (dramatic scalability
+improvement). 
+cpu count detection is now properly OS-dependent. Warning message about 
+lack of cpu count support added for Solaris
+We got SIGKILL and SIGTERM backwards the first time around, so processes
+weren't getting a cahnce to clean themselves up before being killed.
+
+
+VeryNice 0.5 
+------------
+First release

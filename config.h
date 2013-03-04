@@ -4,22 +4,22 @@
 void init_config(void);
 void config(void);
 typedef union {
-  int alignment;
+  long alignment;
   char ag_vt_2[sizeof(int)];
-  char ag_vt_3[sizeof(char)];
-  char ag_vt_4[sizeof(double)];
+  char ag_vt_4[sizeof(char)];
+  char ag_vt_5[sizeof(double)];
 } config_vs_type;
 
 typedef enum {
   config_ConfigFile_token = 1, config_lines_token, config_EOF_token,
   config_ws_token, config_line_token = 7, config_EOL_token,
   config_commentchars_token = 10, config_unquotedstring_token = 14,
-  config_quotedstring_token = 16, config_signed_integer_token = 21,
-  config_unsigned_real_token = 26, config_unsigned_integer_token = 29,
-  config_unquotedstringchar_token = 31, config_quotedstringchars_token = 33,
+  config_quotedstring_token = 16, config_signed_integer_token = 22,
+  config_unsigned_real_token = 27, config_unsigned_integer_token = 30,
+  config_unquotedstringchar_token = 32, config_quotedstringchars_token = 34,
   config_RegularChar_token, config_EscapeSequence_token,
-  config_DIGIT_token = 41, config_mantissa_token, config_EXPSYM_token,
-  config_integer_part_token, config_fraction_part_token = 46
+  config_DIGIT_token = 42, config_mantissa_token, config_EXPSYM_token,
+  config_integer_part_token, config_fraction_part_token = 47
 } config_token_type;
 
 typedef struct {

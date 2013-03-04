@@ -17,6 +17,8 @@
      Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+/* See "README.SYN" for information on converting this ".syn" syntax file
+   to C source code (".c" and ".h") */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,6 +51,10 @@
 
 }
 
+[
+  parser stack alignment = long
+]
+
 EOF=-1
 DIGIT='0-9'
 EXPSYM='e'+'E'
@@ -79,10 +85,12 @@ line
 
     str=PopString(Stk); /* get user name */
     if (!userfile) { /* allow this option only for central config */
-      u=calloc(sizeof(struct immuneuid),1);
       pwd=getpwnam(str);
-      u->uid=pwd->pw_uid;
-      AddTail(&iuidlist,(struct Node *)u);
+      if (pwd) {
+	u=calloc(sizeof(struct immuneuid),1);
+	u->uid=pwd->pw_uid;
+	AddTail(&iuidlist,(struct Node *)u);
+      }
     }
   }
   -> "immuneexe",ws?...,quotedstring,ws?... ={
@@ -131,10 +139,21 @@ line
     exe->uid=uid;
     AddTail(&runawaylist,(struct Node *)exe);
   }
+  -> "hungryexe",ws?...,quotedstring,ws?... ={
+    struct hungryexe *exe;
+    char *str;
+    
+    str=PopString(Stk);
+    exe=calloc(sizeof(struct hungryexe),1);
+    exe->exename=strdup(str);
+    exe->alluid=!userfile;
+    exe->uid=uid;
+    AddTail(&hungrylist,(struct Node *)exe);
+  }
   -> "notnice",ws?...,signed integer:i,ws?...  ={if(!userfile) notnice=i;}
   -> "batchjob",ws?...,signed integer:i,ws?... ={if (!userfile) batchjob=i;}
   -> "runaway",ws?...,signed integer:i,ws?... ={if (!userfile) runaway=i;}
-  -> "term",ws?...,signed integer:i,ws?... ={if(!userfile) term=i;}
+  -> "kill",ws?...,signed integer:i,ws?... ={if(!userfile) killproc=i;}
   -> "badkarmarate",ws?...,unsigned real:r,ws?... ={if (!userfile) badkarmarate=r;}
   -> "badkarmarestorationrate",ws?...,unsigned real:r,ws?... ={if (!userfile) karmarestorationrate=r;}
   -> "periodicity",ws?...,unsigned integer:i,ws?... ={if (!userfile) periodicity=i;}
@@ -214,6 +233,51 @@ void DoConfig(char *Filename,FILE *Cfgin, int Userfile, uid_t Uid)
   UnitStack(Stk);
 }
 
+struct knownuid *ReadCfgFile(uid_t uid) 
+  /* caller responsible for calling endpwent() after this */
+  /* this reads in the config file, and adds an appropriate entry
+     to the known uid list 
+     (returns pointer to entry in known uid list) */
+{
+  struct passwd *pwd;
+  char *userfname;
+  struct knownuid *k;
+  struct stat filestat;
+  FILE *f;
+
+  k=finduid(uid);
+  if (!k) {
+    k=calloc(sizeof(struct knownuid),1);
+    k->uid=uid;
+    AddTail(&uidlist,(struct Node *)k);
+  }
+
+  pwd=getpwuid(uid);
+  
+  if (pwd) {
+    /* read per-user info */
+    userfname=malloc(strlen(pwd->pw_dir)+1+strlen(USERCFGFILE)+1);
+    strcpy(userfname,pwd->pw_dir);
+    strcat(userfname,"/");
+    strcat(userfname,USERCFGFILE);
+    if (!lstat(userfname,&filestat)) {
+      if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
+	/* regular file that exists and is not a symbolic link */
+	/* read it!!! */
+	f=fopen(userfname,"r");
+	DoConfig(userfname,f,1,pwd->pw_uid);
+	fclose(f);
+	
+
+      }
+    }
+    
+    free(userfname);
+    
+  }
+  return k;
+}
+
 void ReadCfgFiles(char *prefix)
 /* WARNING: side effects:
        - Assumes syslog(3) is activated. Caller is responsible for opening/closing
@@ -227,8 +291,10 @@ void ReadCfgFiles(char *prefix)
   struct badexe *b;
   struct goodexe *g;
   struct runawayexe *r;
+  struct hungryexe *h;
   char *userfname;
-  struct stat filestat;
+  struct knownuid *k;
+  struct procent *proc;
   
   FILE *f;
   struct passwd *pwd;
@@ -270,6 +336,17 @@ void ReadCfgFiles(char *prefix)
     free(r);
   }
 
+  while (h=(struct hungryexe *)RemHead(&hungrylist)) {
+    free(h->exename);
+    free(h);
+  }
+
+  /* throw away known-user list */
+  while(k=(struct knownuid *)RemHead(&uidlist)) {
+    free(k);
+  }
+
+
   /* load central config */
   f=fopen(centralname,"r");
   if (f) {
@@ -279,28 +356,14 @@ void ReadCfgFiles(char *prefix)
   free(centralname);
 
   /* load by-user config */
-  setpwent();
-  while (pwd=getpwent()) {
-    /* read per-user info */
-    userfname=malloc(strlen(pwd->pw_dir)+1+strlen(USERCFGFILE)+1);
-    strcpy(userfname,pwd->pw_dir);
-    strcat(userfname,"/");
-    strcat(userfname,USERCFGFILE);
-    if (!lstat(userfname,&filestat)) {
-      if (!S_ISLNK(filestat.st_mode) && S_ISREG(filestat.st_mode)) {
-	/* regular file that exists and is not a symbolic link */
-	/* read it!!! */
-	f=fopen(userfname,"r");
-	DoConfig(userfname,f,1,pwd->pw_uid);
-	fclose(f);
-	
-
-      }
+  /* build uid list and read in config info. */
+  for (proc=(struct procent *)proclist.lh_Head;proc->Node.ln_Succ;proc=(struct procent *)proc->Node.ln_Succ) {
+    k=finduid(proc->uid);
+    if (!k) {
+      ReadCfgFile(proc->uid); /* load in user info */
     }
-    
-    free(userfname);
   }
-
+  
 
   endpwent();
 }

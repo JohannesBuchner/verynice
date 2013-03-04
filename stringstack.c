@@ -190,6 +190,7 @@ char *InitString(struct Stack *Stk)
 	SETSTRING(StkNode);
 	StkNode->String[0]='\0';
 	AddTail((struct List *)&Stk->StringList,(struct Node *)StkNode);
+	return StkNode->String;
 }
 
 /* close down a stack */
