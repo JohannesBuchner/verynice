@@ -56,13 +56,13 @@ distclean: clean
 dist: distclean
 	(cd .. ; tar cvzf verynice-$(VERSION).tar.gz verynice/ )
 
-install: 
+install:
 	$(INSTALL) -d $(RPM_BUILD_ROOT)$(BINDIR)
 	$(INSTALL) verynice $(RPM_BUILD_ROOT)$(BINDIR)
 	$(INSTALL) -d $(RPM_BUILD_ROOT)$(ETCDIR)
 	$(INSTALL) -m 644 verynice.conf $(RPM_BUILD_ROOT)$(ETCDIR)
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share 
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc 
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc
 	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)/html
 	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)/html
@@ -72,11 +72,11 @@ install:
 	$(INSTALL) -m 644 CHANGELOG $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 
 
-buildrpm: 
+buildrpm:
 	cp ../verynice-$(VERSION).tar.gz /usr/src/redhat/SOURCES
 	rm -f /usr/src/redhat/SRPMS/verynice-$(VERSION)-1.src.rpm
 	rm -f /usr/src/redhat/RPMS/*/verynice-$(VERSION)-1.*.rpm
- 
+
 	sed 's/VERSION/$(VERSION)/' <verynice.spec >/usr/src/redhat/SOURCES/verynice.spec
 	rpm -ba /usr/src/redhat/SOURCES/verynice.spec
 
@@ -91,7 +91,7 @@ postbuildrpm:
 anal.%: %.syn
 	$(AG) $*
 
-verynice: verynice.o config.o linklist.o stringstack.o 
+verynice: verynice.o config.o linklist.o stringstack.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 
