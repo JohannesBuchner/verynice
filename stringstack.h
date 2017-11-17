@@ -18,25 +18,24 @@
 
 */
 
-
 struct Stack {
 	struct MinList StringList;
 	char *PopStringBuf;
-	long PopStringBufSize; /* Allocated size */
+	long PopStringBufSize;		/* Allocated size */
 };
 
 struct StkNode {
 	struct MinNode Node;
-	char *String; /* String actually stored in memory after StkNode */
-	int AllocLen; /* Allocated length, including StkNode and string */
+	char *String;				/* String actually stored in memory after StkNode */
+	int AllocLen;				/* Allocated length, including StkNode and string */
 };
 
 #define SETSTRING(StkNode) {((struct StkNode *)(StkNode))->String=((char *)(StkNode))+sizeof(struct StkNode);}
-#define STRINCREMENT 150 /* incremental string size -- between realloc()s */
+#define STRINCREMENT 150		/* incremental string size -- between realloc()s */
 
 /* Push a string into a new stack entry */
 /* returns NULL in case of error or original string pointer */
-char * PushString(struct Stack *Stk,char *Str);
+char *PushString(struct Stack *Stk, char *Str);
 
 /*
 	remove and copy into static storage the top string on the stack.
@@ -44,15 +43,15 @@ char * PushString(struct Stack *Stk,char *Str);
 	is called with the same stack pointer
 	returns NULL in case of error.
 */
-char *PopString(struct Stack *Stk); 
+char *PopString(struct Stack *Stk);
 
 /* Add a character to the end of the string at the top of the stack */
 /* Returns character, or -1 for error */
-int AddChar(struct Stack *Stk,int Chr);
+int AddChar(struct Stack *Stk, int Chr);
 
 /* Add a string to the end of the string at the top of the stack */
 /* Returns original string pointer, or NULL for error */
-char *AddStr(struct Stack *Stk,char *Str);
+char *AddStr(struct Stack *Stk, char *Str);
 
 /* Get pointer to the string on the top of the stack. This pointer
 becomes invalid if AddChar or AddStr is called on that member of the stack.
@@ -63,10 +62,10 @@ char *GetString(struct Stack *Stk);
 
 /* Initialize a string on the top of the stack */
 /* returns NULL in case of error */
-char *InitString(struct Stack *Stk) ;
+char *InitString(struct Stack *Stk);
 
 /* Insert Str at the beginning of the string on the top of the stack */
-void InsertString(struct Stack *Stk,char *Str);
+void InsertString(struct Stack *Stk, char *Str);
 
 /* Initialize a stack */
 /* returns NULL in case of error */

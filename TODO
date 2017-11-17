@@ -1,0 +1,9 @@
+Features
+
+ ☐ Add comm filtering to support renicing based on thread names
+ ☐ Add support for ioprio adjustments
+
+Cleanups
+
+ ☐ Remove Solaris-specific code
+ ☐ Remove dependency on proprietary config parser generator
