@@ -31,7 +31,7 @@ INSTALL=install
 # Solaris users probably need to use this:
 #INSTALL=/usr/ucb/install
 
-VERSION=1.1
+VERSION=1.1.1
 
 #CFLAGS= -I../include/ -O3 -Wimplicit
 CFLAGS += -Wimplicit
