@@ -1,0 +1,3 @@
+-ut -i4 -ip4 -ts4 -cli4 -di2 -l70
+-bs -ncs -nprs -saf -sai -npcs -saw -nss
+-br -brs -nbfda -sob -bap -psl -cdw -nce -sc -bad -lp -bbo

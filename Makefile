@@ -15,13 +15,15 @@
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-CC = gcc
+CC ?= gcc
 
 
 RPM_BUILD_ROOT=
 
 # PREFIX is usually either /usr or /usr/local
 PREFIX=/usr/local
+BINDIR=$(PREFIX)/sbin
+ETCDIR=/etc
 TARGET=linux
 
 
@@ -29,11 +31,11 @@ INSTALL=install
 # Solaris users probably need to use this:
 #INSTALL=/usr/ucb/install
 
-VERSION=1.1
+VERSION=1.1.1
 
 #CFLAGS= -I../include/ -O3 -Wimplicit
-CFLAGS= -I../include/ -g -Wimplicit -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET) -DVERSION=\"$(VERSION)\"
-LINK = gcc 
+CFLAGS += -Wimplicit
+CPPFLAGS = -I../include/ -DPREFIX=\"$(PREFIX)\" -DTARGET_$(TARGET) -DVERSION=\"$(VERSION)\"
 AG = /home3/sdh4/anagram/ag_unix_dev/ag
 
 
@@ -54,32 +56,27 @@ distclean: clean
 dist: distclean
 	(cd .. ; tar cvzf verynice-$(VERSION).tar.gz verynice/ )
 
-install: 
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/sbin
-	$(INSTALL) verynice $(RPM_BUILD_ROOT)$(PREFIX)/sbin	
-	if [ $(PREFIX) = "/usr" ]; then \
-	  mv -f $(RPM_BUILD_ROOT)/etc/verynice.conf $(RPM_BUILD_ROOT)/etc/verynice.conf~ ; \
-	  $(INSTALL) verynice.conf $(RPM_BUILD_ROOT)/etc ; \
-	else \
-	  $(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/etc ; \
-	  mv -f $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc/verynice.conf~ ; \
-	  $(INSTALL) -m 644 verynice.conf $(RPM_BUILD_ROOT)$(PREFIX)/etc ; \
-	fi
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share 
-	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc 
+install:
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(BINDIR)
+	$(INSTALL) verynice $(RPM_BUILD_ROOT)$(BINDIR)
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(ETCDIR)
+	$(INSTALL) -m 644 verynice.conf $(RPM_BUILD_ROOT)$(ETCDIR)
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc
 	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
-	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
+	$(INSTALL) -d $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)/html
+	$(INSTALL) -m 644 verynice.html $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)/html
 	$(INSTALL) -m 644 README $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 	$(INSTALL) -m 644 README.SYN $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 	$(INSTALL) -m 644 COPYING $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 	$(INSTALL) -m 644 CHANGELOG $(RPM_BUILD_ROOT)$(PREFIX)/share/doc/verynice-$(VERSION)
 
 
-buildrpm: 
+buildrpm:
 	cp ../verynice-$(VERSION).tar.gz /usr/src/redhat/SOURCES
 	rm -f /usr/src/redhat/SRPMS/verynice-$(VERSION)-1.src.rpm
 	rm -f /usr/src/redhat/RPMS/*/verynice-$(VERSION)-1.*.rpm
- 
+
 	sed 's/VERSION/$(VERSION)/' <verynice.spec >/usr/src/redhat/SOURCES/verynice.spec
 	rpm -ba /usr/src/redhat/SOURCES/verynice.spec
 
@@ -94,8 +91,8 @@ postbuildrpm:
 anal.%: %.syn
 	$(AG) $*
 
-verynice: verynice.o config.o linklist.o stringstack.o 
-	$(LINK) -g -o $@ $^ -lm
+verynice: verynice.o config.o linklist.o stringstack.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -lm
 
 
 
