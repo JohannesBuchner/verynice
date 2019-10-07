@@ -1,0 +1,10 @@
+[Unit]
+Description=Automatic process Niceness
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/sbin/verynice
+
+[Install]
+WantedBy=multi-user.target

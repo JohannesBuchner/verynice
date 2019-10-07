@@ -127,6 +127,18 @@ cp verynice.init /etc/rc.d/init.d
 chkconfig --add verynice.init</tt></pre>
 chkconfig verynice.init on
 </p>
+
+<h4> Procedure for Installation with systemd</h4>
+<p>
+(tested on Ubuntu. You may want to change PREFIX in the Makefile first.)
+<pre><tt>make clean ; make ; make install
+cp verynice.service /etc/systemd/system
+systemctl daemon-reload 
+systemctl  enable verynice
+systemctl  start verynice
+</tt></pre>
+</p>
+
 <h4> Signals </h4>
 <p>
 You can use the <tt>kill(1)</tt> command to send signals to VeryNice that
